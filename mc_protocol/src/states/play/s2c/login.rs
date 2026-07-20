@@ -1,7 +1,7 @@
 use super::types::{DeathLocation, Difficulty};
 use super::{ClientBoundPacket, ParsePacketError};
 use crate::connection::s2c::try_advance;
-use crate::types::{mc_nbt, McBool, McPrefixedArrayField, McReadBuf, McStringField, McVarInt};
+use crate::types::{McBool, McPrefixedArrayField, McReadBuf, McStringField, McVarInt, mc_nbt};
 use bytes::{Buf, Bytes};
 
 #[derive(Debug, Default)]

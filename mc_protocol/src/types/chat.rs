@@ -2,7 +2,7 @@ use super::{
     MCJsonTextFieldError, McJsonTextComponent, McJsonTextField, McNbtFieldError, McReadBuf,
     McTextComponent,
 };
-use bytes::{Bytes};
+use bytes::Bytes;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -38,12 +38,8 @@ impl McChat {
     }
     pub fn formatted(&self) -> String {
         match self {
-            McChat::JsonTextComponent(text) => {
-                text.formatted()
-            }
-            McChat::TextComponent(text) => {
-                text.formatted()
-            }
+            McChat::JsonTextComponent(text) => text.formatted(),
+            McChat::TextComponent(text) => text.formatted(),
         }
     }
 }

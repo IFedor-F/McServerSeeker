@@ -17,7 +17,6 @@ impl McVersion {
     }
 }
 
-
 macro_rules! create_version {
     ($major:literal $minor:literal $patch:literal => $protocol:literal) => {
         McVersion {

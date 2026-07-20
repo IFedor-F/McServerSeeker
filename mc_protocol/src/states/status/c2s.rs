@@ -10,7 +10,6 @@ use crate::impl_serverbound_state;
 pub enum C2SStatusState {
     StatusRequest(StatusRequestPacket),
     PingRequest(PingRequestPacket),
-
 }
 
 impl_serverbound_state! {

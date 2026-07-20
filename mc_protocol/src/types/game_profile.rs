@@ -1,5 +1,5 @@
 use super::{McBool, McPrefixedArrayField, McReadBuf, McStringField};
-use crate::connection::s2c::{ParsePacketError};
+use crate::connection::s2c::ParsePacketError;
 use bytes::Bytes;
 
 #[derive(Debug, Clone)]

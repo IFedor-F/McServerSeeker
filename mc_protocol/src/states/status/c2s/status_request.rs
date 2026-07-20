@@ -1,4 +1,4 @@
-use super::{ServerBoundPacket};
+use super::ServerBoundPacket;
 use bytes::BytesMut;
 
 #[derive(Debug)]

@@ -1,5 +1,5 @@
 use super::ServerBoundPacket;
-use crate::types::{McVarInt, mc_string, McBool};
+use crate::types::{McBool, McVarInt, mc_string};
 use bytes::{BufMut, BytesMut};
 
 // https://minecraft.wiki/w/Java_Edition_protocol/Packets#Client_Information

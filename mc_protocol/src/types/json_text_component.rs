@@ -21,7 +21,6 @@ pub enum MCJsonTextFieldError {
     InvalidJson(#[from] serde_json::Error),
 }
 
-
 #[derive(Deserialize, Debug, Clone)]
 pub struct McJsonTextComponent(serde_json::Value);
 

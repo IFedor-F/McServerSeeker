@@ -1,7 +1,7 @@
+use super::types::Difficulty;
 use super::{ClientBoundPacket, ParsePacketError};
 use crate::types::{McBool, McReadBuf, McVarInt};
 use bytes::Bytes;
-use super::types::Difficulty;
 
 #[derive(Debug)]
 pub struct ChangeDifficultyPacket {

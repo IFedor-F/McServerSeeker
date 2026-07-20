@@ -1,5 +1,8 @@
 use super::McPacket;
-use crate::types::{MCJsonTextFieldError, McBoolError, McChatError, McNbtFieldError, McPrefixedArrayError, McStringFieldError, McVarIntError};
+use crate::types::{
+    MCJsonTextFieldError, McBoolError, McChatError, McNbtFieldError, McPrefixedArrayError,
+    McStringFieldError, McVarIntError,
+};
 use bytes::{Buf, Bytes};
 
 #[derive(Debug, thiserror::Error)]
@@ -21,7 +24,7 @@ pub enum ParsePacketError {
 
     #[error("JSON text field parse error: {0}")]
     InvalidJsonTextField(#[from] MCJsonTextFieldError),
-    
+
     #[error("McChat parse error: {0}")]
     InvalidChat(#[from] McChatError),
 

@@ -94,24 +94,12 @@ fn read_nbt_payload(
 
     match tag_id {
         0 => Ok(McNbtTag::End),
-        1 => {
-            Ok(McNbtTag::Byte(buf.try_get_i8()?))
-        }
-        2 => {
-            Ok(McNbtTag::Short(buf.try_get_i16()?))
-        }
-        3 => {
-            Ok(McNbtTag::Int(buf.try_get_i32()?))
-        }
-        4 => {
-            Ok(McNbtTag::Long(buf.try_get_i64()?))
-        }
-        5 => {
-            Ok(McNbtTag::Float(buf.try_get_f32()?))
-        }
-        6 => {
-            Ok(McNbtTag::Double(buf.try_get_f64()?))
-        }
+        1 => Ok(McNbtTag::Byte(buf.try_get_i8()?)),
+        2 => Ok(McNbtTag::Short(buf.try_get_i16()?)),
+        3 => Ok(McNbtTag::Int(buf.try_get_i32()?)),
+        4 => Ok(McNbtTag::Long(buf.try_get_i64()?)),
+        5 => Ok(McNbtTag::Float(buf.try_get_f32()?)),
+        6 => Ok(McNbtTag::Double(buf.try_get_f64()?)),
         7 => {
             // TAG_Byte_Array
             let len = buf.try_get_i32()?;

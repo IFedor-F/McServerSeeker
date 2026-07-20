@@ -15,7 +15,7 @@ pub use game_profile::{GameProfile, GameProfileProperty};
 pub mod player;
 pub use player::{Player, PlayerInvalidUUID};
 pub mod mc_version;
-pub use mc_version::{McVersionEnum, McVersion};
+pub use mc_version::{McVersion, McVersionEnum};
 pub mod chat;
 pub use chat::{McChat, McChatError};
 

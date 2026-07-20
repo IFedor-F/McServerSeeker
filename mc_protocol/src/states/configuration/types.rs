@@ -1,11 +1,11 @@
 use crate::connection::s2c::ParsePacketError;
+use crate::states::configuration::s2c::ResourcePackPushPacket;
 use crate::types::{
     McBool, McModernNbtField, McNbtTag, McPrefixedArrayField, McReadBuf, McStringField,
     McStringFieldError, McVarInt,
 };
 use bytes::Bytes;
 use uuid::Uuid;
-use crate::states::configuration::s2c::ResourcePackPushPacket;
 
 #[derive(Debug)]
 pub struct ReportDetail {

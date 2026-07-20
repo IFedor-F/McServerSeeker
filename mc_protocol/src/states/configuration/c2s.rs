@@ -18,8 +18,8 @@ mod client_information;
 
 pub use client_information::ClientInformationPacket;
 
-use crate::connection::c2s::{ServerBoundPacket, ServerBoundState};
 use super::types;
+use crate::connection::c2s::{ServerBoundPacket, ServerBoundState};
 use crate::impl_serverbound_state;
 pub use crate::states::login::c2s::CookieResponsePacket;
 
