@@ -1,5 +1,5 @@
 use super::{ClientBoundPacket, ParsePacketError};
-use crate::types::{McBool, McReadBuf, McStringField, McTextComponent};
+use crate::types::{McBool, McChat, McReadBuf, McStringField};
 use bytes::{Buf, Bytes};
 use uuid::Uuid;
 
@@ -10,7 +10,7 @@ pub struct ResourcePackPushPacket {
     pub url: String,
     pub hash: String,
     pub forced: Option<bool>,
-    pub prompt_message: Option<McTextComponent>,
+    pub prompt_message: Option<McChat>,
 }
 impl ClientBoundPacket for ResourcePackPushPacket {
     const MC_NAME: &str = "resource_pack_push";
@@ -27,9 +27,7 @@ impl ClientBoundPacket for ResourcePackPushPacket {
                 let forced = Some(McBool::read_from_buf(&mut data)?);
                 let has_prompt = McBool::read_from_buf(&mut data)?;
                 let prompt_message = if has_prompt {
-                    Some(McTextComponent::read_from_buf_with_protocol(
-                        &mut data, protocol,
-                    )?)
+                    Some(McChat::read_from_buf_with_protocol(&mut data, protocol)?)
                 } else {
                     None
                 };

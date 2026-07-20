@@ -1,27 +1,27 @@
-mod clear_dialog_packet;
-pub use clear_dialog_packet::ClearDialogPacket;
-mod code_of_conduct_packet;
-pub use code_of_conduct_packet::CodeOfConductPacket;
+mod clear_dialog;
+pub use clear_dialog::ClearDialogPacket;
+mod code_of_conduct;
+pub use code_of_conduct::CodeOfConductPacket;
 mod store_cookie;
 pub use store_cookie::StoreCookiePacket;
-pub mod custom_report_details_packet;
-pub use custom_report_details_packet::CustomReportDetailsPacket;
+pub mod custom_report_details;
+pub use custom_report_details::CustomReportDetailsPacket;
 mod disconnect_packet;
 pub use disconnect_packet::DisconnectPacket;
-mod feature_flags_packet;
-pub use feature_flags_packet::FeatureFlagsPacket;
-mod finish_configuration_packet;
-pub use finish_configuration_packet::FinishConfigurationPacket;
+mod feature_flags;
+pub use feature_flags::FeatureFlagsPacket;
+mod finish_configuration;
+pub use finish_configuration::FinishConfigurationPacket;
 mod keep_alive_packet;
 pub use keep_alive_packet::KeepAlivePacket;
-mod ping_packet;
-pub use ping_packet::PingPacket;
-mod plugin_message_packet;
-pub use plugin_message_packet::PluginMessagePacket;
-mod registry_data_packet;
-pub use registry_data_packet::RegistryDataPacket;
-mod reset_chat_packet;
-pub use reset_chat_packet::ResetChatPacket;
+mod ping;
+pub use ping::PingPacket;
+mod custom_payload;
+pub use custom_payload::CustomPayloadPacket;
+mod registry_data;
+pub use registry_data::RegistryDataPacket;
+mod reset_chat;
+pub use reset_chat::ResetChatPacket;
 pub mod select_known_pack;
 pub use select_known_pack::KnownPacksPacket;
 pub mod resource_pack_push;
@@ -30,12 +30,12 @@ pub mod resource_pack_pop;
 pub use resource_pack_pop::RemoveResourcePackPacket;
 pub mod server_links;
 pub use server_links::ServerLinksPacket;
-mod show_dialog_packet;
-pub use show_dialog_packet::ShowDialogPacket;
-mod update_tags_packet;
-pub use update_tags_packet::UpdateTagsPacket;
-mod transfer_packet;
-pub use transfer_packet::TransferPacket;
+mod show_dialog;
+pub use show_dialog::ShowDialogPacket;
+mod update_tags;
+pub use update_tags::UpdateTagsPacket;
+mod transfer;
+pub use transfer::TransferPacket;
 
 use super::types;
 use crate::connection::McPacket;
@@ -44,9 +44,9 @@ use crate::impl_clientbound_state;
 pub use crate::states::login::s2c::CookieRequestPacket;
 
 #[derive(Debug)]
-pub enum ConfigurationState {
+pub enum S2CConfigurationState {
     CookieRequest(CookieRequestPacket),
-    PluginMessage(PluginMessagePacket),
+    CustomPayload(CustomPayloadPacket),
     Disconnect(DisconnectPacket),
     FinishConfiguration(FinishConfigurationPacket),
     KeepAlive(KeepAlivePacket),
@@ -69,10 +69,10 @@ pub enum ConfigurationState {
 
 impl_clientbound_state! {
     state = "Configuration";
-    enum ConfigurationState;
+    enum S2CConfigurationState;
     match protocol {
         764  => {
-            0x00 => PluginMessage: PluginMessagePacket,
+            0x00 => CustomPayload: CustomPayloadPacket,
             0x01 => Disconnect: DisconnectPacket,
             0x02 => FinishConfiguration: FinishConfigurationPacket,
             0x03 => KeepAlive: KeepAlivePacket,
@@ -83,7 +83,7 @@ impl_clientbound_state! {
             0x08 => UpdateTags: UpdateTagsPacket,
         },
         765  => {
-            0x00 => PluginMessage: PluginMessagePacket,
+            0x00 => CustomPayload: CustomPayloadPacket,
             0x01 => Disconnect: DisconnectPacket,
             0x02 => FinishConfiguration: FinishConfigurationPacket,
             0x03 => KeepAlive: KeepAlivePacket,
@@ -96,7 +96,7 @@ impl_clientbound_state! {
         },
         766  => {
             0x00 => CookieRequest: CookieRequestPacket,
-            0x01 => PluginMessage: PluginMessagePacket,
+            0x01 => CustomPayload: CustomPayloadPacket,
             0x02 => Disconnect: DisconnectPacket,
             0x03 => FinishConfiguration: FinishConfigurationPacket,
             0x04 => KeepAlive: KeepAlivePacket,
@@ -113,7 +113,7 @@ impl_clientbound_state! {
         },
         767..=770  => {
             0x00 => CookieRequest: CookieRequestPacket,
-            0x01 => PluginMessage: PluginMessagePacket,
+            0x01 => CustomPayload: CustomPayloadPacket,
             0x02 => Disconnect: DisconnectPacket,
             0x03 => FinishConfiguration: FinishConfigurationPacket,
             0x04 => KeepAlive: KeepAlivePacket,
@@ -132,7 +132,7 @@ impl_clientbound_state! {
         },
         771..=772  => {
             0x00 => CookieRequest: CookieRequestPacket,
-            0x01 => PluginMessage: PluginMessagePacket,
+            0x01 => CustomPayload: CustomPayloadPacket,
             0x02 => Disconnect: DisconnectPacket,
             0x03 => FinishConfiguration: FinishConfigurationPacket,
             0x04 => KeepAlive: KeepAlivePacket,
@@ -153,7 +153,7 @@ impl_clientbound_state! {
         },
         773..=776  => {
             0x00 => CookieRequest: CookieRequestPacket,
-            0x01 => PluginMessage : PluginMessagePacket,
+            0x01 => CustomPayload : CustomPayloadPacket,
             0x02 => Disconnect: DisconnectPacket,
             0x03 => FinishConfiguration: FinishConfigurationPacket,
             0x04 => KeepAlive: KeepAlivePacket,

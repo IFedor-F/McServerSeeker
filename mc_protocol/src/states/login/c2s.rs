@@ -1,19 +1,19 @@
-mod hello_packet;
-pub use hello_packet::HelloPacket;
-mod custom_query_response_packet;
-pub use custom_query_response_packet::CustomQueryAnswerPacket;
-mod login_acknowledged_packet;
-pub use login_acknowledged_packet::LoginAcknowledgedPacket;
-mod cookie_response_packet;
-pub use cookie_response_packet::CookieResponsePacket;
-mod key_packet;
-pub use key_packet::KeyPacket;
+mod hello;
+pub use hello::HelloPacket;
+mod custom_query_response;
+pub use custom_query_response::CustomQueryAnswerPacket;
+mod login_acknowledged;
+pub use login_acknowledged::LoginAcknowledgedPacket;
+mod cookie_response;
+pub use cookie_response::CookieResponsePacket;
+mod key;
+pub use key::KeyPacket;
 
 use crate::connection::c2s::{ServerBoundPacket, ServerBoundState};
 use crate::impl_serverbound_state;
 
 #[derive(Debug)]
-pub enum LoginState {
+pub enum C2SLoginState {
     Hello(HelloPacket),
     Key(KeyPacket),
     CustomQueryAnswer(CustomQueryAnswerPacket),
@@ -23,7 +23,7 @@ pub enum LoginState {
 
 impl_serverbound_state! {
     state = "login";
-    enum LoginState;
+    enum C2SLoginState;
     match protocol {
         5..=392 => {
             0x00 => Hello: HelloPacket,

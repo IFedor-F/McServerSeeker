@@ -1,6 +1,6 @@
 use super::ServerBoundPacket;
 use super::types::ResourcePackIdent;
-use crate::types::mc_string;
+use crate::types::{McVarInt, mc_string};
 use bytes::{BufMut, BytesMut};
 
 // https://minecraft.wiki/w/Java_Edition_protocol/Packets#Resource_Pack_Response
@@ -43,5 +43,6 @@ impl ServerBoundPacket for ResourcePackResponsePacket {
                 }
             }
         }
+        McVarInt(self.result).write_to_buf(buf);
     }
 }

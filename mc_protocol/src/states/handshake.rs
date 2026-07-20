@@ -4,13 +4,13 @@ use crate::types::{McVarInt, mc_string};
 use bytes::{BufMut, BytesMut};
 
 #[derive(Debug)]
-pub enum HandshakeState {
+pub enum C2SHandshakeState {
     Handshake(HandshakePacket),
 }
 
 impl_serverbound_state! {
     state = "handshake";
-    enum HandshakeState;
+    enum C2SHandshakeState;
 
     match protocol {
         0.. => {

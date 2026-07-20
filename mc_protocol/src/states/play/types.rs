@@ -1,14 +1,15 @@
+use crate::connection::s2c::{ParsePacketError, try_split_to};
+pub use crate::states::configuration::types::ResourcePackIdent;
+use crate::types::{GameProfile, McReadBuf, McTextComponent, McVarInt};
 use bytes::{Buf, Bytes};
 use uuid::Uuid;
-use crate::connection::s2c::{try_split_to, ParsePacketError};
-use crate::types::{GameProfile, McReadBuf, McTextComponent, McVarInt};
 
 #[derive(Debug, Default)]
 pub struct DeathLocation {
     pub dimension_name: String,
     pub location: i64,
 }
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Difficulty {
     Peaceful = 0,
     Easy = 1,
@@ -17,6 +18,17 @@ pub enum Difficulty {
 }
 impl From<i32> for Difficulty {
     fn from(value: i32) -> Self {
+        match value {
+            0 => Self::Peaceful,
+            1 => Self::Easy,
+            2 => Self::Normal,
+            3 => Self::Hard,
+            n => panic!("Difficulty expected 0, 1, 2 or 3, but get {}", n),
+        }
+    }
+}
+impl From<u8> for Difficulty {
+    fn from(value: u8) -> Self {
         match value {
             0 => Self::Peaceful,
             1 => Self::Easy,

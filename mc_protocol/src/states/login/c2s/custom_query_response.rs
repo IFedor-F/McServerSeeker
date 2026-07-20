@@ -8,7 +8,7 @@ pub struct CustomQueryAnswerPacket {
     pub data: Option<Bytes>,
 }
 impl CustomQueryAnswerPacket {
-    pub fn with_empty_data(message_id: i32) -> Self {
+    pub fn empty_data(message_id: i32) -> Self {
         Self {
             message_id,
             data: None,

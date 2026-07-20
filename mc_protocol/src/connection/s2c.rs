@@ -1,8 +1,5 @@
 use super::McPacket;
-use crate::types::{
-    MCJsonFieldError, McBoolError, McNbtFieldError, McPrefixedArrayError, McStringFieldError,
-    McVarIntError,
-};
+use crate::types::{MCJsonTextFieldError, McBoolError, McChatError, McNbtFieldError, McPrefixedArrayError, McStringFieldError, McVarIntError};
 use bytes::{Buf, Bytes};
 
 #[derive(Debug, thiserror::Error)]
@@ -23,7 +20,10 @@ pub enum ParsePacketError {
     InvalidNbt(#[from] McNbtFieldError),
 
     #[error("JSON text field parse error: {0}")]
-    InvalidJsonTextField(#[from] MCJsonFieldError),
+    InvalidJsonTextField(#[from] MCJsonTextFieldError),
+    
+    #[error("McChat parse error: {0}")]
+    InvalidChat(#[from] McChatError),
 
     #[error("Invalid UUID-string")]
     InvalidStringUuid,

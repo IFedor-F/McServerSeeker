@@ -1,4 +1,7 @@
+use crate::states::status::s2c::status_response::PlayerSample;
+use serde::Deserialize;
 use std::str::FromStr;
+use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]
 #[error("Expected UUID v3 or v4")]
@@ -7,29 +10,52 @@ pub struct PlayerInvalidUUID;
 /// Represents Minecraft Player
 ///
 /// If is_online is true, uuid is random (v4), else uuid is based on player's name
-#[derive(Debug)]
+#[derive(Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
+#[serde(try_from = "PlayerSample")]
 pub struct Player {
     pub name: String,
-    pub uuid: uuid::Uuid,
+    pub uuid: Uuid,
     pub is_online: bool,
 }
+
+impl TryFrom<PlayerSample> for Player {
+    type Error = PlayerInvalidUUID;
+    fn try_from(sample: PlayerSample) -> Result<Self, Self::Error> {
+        Player::from_strings(sample.name, sample.id)
+    }
+}
 impl Player {
-    pub fn from_str(name: &str, uuid_string: &str) -> Result<Player, PlayerInvalidUUID> {
-        match uuid::Uuid::from_str(uuid_string) {
+    pub fn from_strings(name: String, uuid_string: String) -> Result<Player, PlayerInvalidUUID> {
+        match Uuid::from_str(&uuid_string) {
             Ok(uuid) => match uuid.get_version() {
                 Some(uuid::Version::Md5) => Ok(Player {
-                    name: name.to_owned(),
+                    name,
                     uuid,
                     is_online: false,
                 }),
                 Some(uuid::Version::Random) => Ok(Self {
-                    name: name.to_owned(),
+                    name,
                     uuid,
                     is_online: true,
                 }),
                 _ => Err(PlayerInvalidUUID),
             },
             Err(_) => Err(PlayerInvalidUUID),
+        }
+    }
+    pub fn from_name_and_uuid(name: String, uuid: Uuid) -> Result<Player, PlayerInvalidUUID> {
+        match uuid.get_version() {
+            Some(uuid::Version::Md5) => Ok(Player {
+                name,
+                uuid,
+                is_online: false,
+            }),
+            Some(uuid::Version::Random) => Ok(Self {
+                name,
+                uuid,
+                is_online: true,
+            }),
+            _ => Err(PlayerInvalidUUID),
         }
     }
     pub fn from_offline_name(name: String) -> Self {
@@ -47,6 +73,7 @@ impl Player {
             uuid,
         }
     }
+
     /// Generate random name and random uuid (v4) for Player using fastrand (not cryptographically secure).
     ///
     /// Like online means what uuid is v4 and not based on name.

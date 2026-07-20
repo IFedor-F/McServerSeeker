@@ -5,13 +5,13 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 
 #[derive(Debug, Error)]
 pub enum McBoolError {
-    #[error("Expected 0 or 1, but got {0:b}")]
+    #[error("McBoolError: expected 0 or 1, but got {0:b}")]
     Invalid(u8),
 
-    #[error("Unexpected Eof")]
+    #[error("Unexpected EOF while parsing McBool")]
     UnexpectedEof,
 
-    #[error("IO error: {0}")]
+    #[error("IO error: {0} while parsing McBool")]
     Io(std::io::Error),
 }
 impl From<std::io::Error> for McBoolError {

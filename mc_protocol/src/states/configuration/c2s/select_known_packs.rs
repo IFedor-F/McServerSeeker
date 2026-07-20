@@ -1,12 +1,19 @@
-use super::types::KnownPack;
 use super::ServerBoundPacket;
-use crate::types::{mc_string, McVarInt};
+use super::types::KnownPack;
+use crate::types::{McVarInt, mc_string};
 use bytes::BytesMut;
 
 // https://minecraft.wiki/w/Java_Edition_protocol/Packets#Known_Packs_(serverbound)
 #[derive(Debug)]
 pub struct SelectKnownPacksPacket {
     pub known_packs: Vec<KnownPack>,
+}
+impl SelectKnownPacksPacket {
+    pub fn empty() -> Self {
+        Self {
+            known_packs: vec![],
+        }
+    }
 }
 impl ServerBoundPacket for SelectKnownPacksPacket {
     const MC_NAME: &'static str = "select_known_packs";

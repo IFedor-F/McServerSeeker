@@ -6,19 +6,19 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 
 #[derive(Debug, Error)]
 pub enum McVarIntError {
-    #[error("VarInt is more than 5 bytes")]
+    #[error("McVarInt can't be more than 5 bytes")]
     TooLong,
 
-    #[error("Unexpected EOF while reading VarInt")]
+    #[error("Unexpected EOF while reading McVarInt")]
     UnexpectedEof,
 
-    #[error("IO error: {0}")]
+    #[error("IO error while reading McVarInt: {0}")]
     Io(std::io::Error),
 
-    #[error("Check failed, value is too small, min: {min}, actual: {actual}")]
+    #[error("VarInt check failed, value is too small, min: {min}, actual: {actual}")]
     TooSmall { min: i32, actual: i32 },
 
-    #[error("Check failed, value is too big, max: {max}, actual: {actual}")]
+    #[error("VarInt check failed, value is too big, max: {max}, actual: {actual}")]
     TooBig { max: i32, actual: i32 },
 }
 

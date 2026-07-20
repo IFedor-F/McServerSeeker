@@ -39,7 +39,7 @@ macro_rules! impl_serverbound_state {
                                     }
                                 )*
                                 #[allow(unreachable_patterns)]
-                                _ => panic!("packet isn't support in state {} with protocol {}", Self::STATE_NAME, protocol),
+                                unhandled => panic!("packet {:?} isn't support in state {} with protocol {}", unhandled, Self::STATE_NAME, protocol),
                             }
                         }
                     )*

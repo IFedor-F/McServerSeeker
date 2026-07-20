@@ -4,10 +4,10 @@ use bytes::{BufMut, BytesMut};
 
 // https://minecraft.wiki/w/Java_Edition_protocol/Packets#Keep_Alive_(serverbound)
 #[derive(Debug)]
-pub struct KeepAlivePacket {
+pub struct KeepAliveResponsePacket {
     pub keep_alive_id: i64,
 }
-impl ServerBoundPacket for KeepAlivePacket {
+impl ServerBoundPacket for KeepAliveResponsePacket {
     const MC_NAME: &'static str = "keep_alive";
     fn encode_payload(self, buf: &mut BytesMut, protocol: i32) {
         match protocol {

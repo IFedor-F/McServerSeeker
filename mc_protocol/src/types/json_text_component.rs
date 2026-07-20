@@ -4,44 +4,23 @@ use serde::Deserialize;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum MCJsonFieldError {
-    #[error("Size ({actual} bytes) is more than limit ({max} bytes)")]
+pub enum MCJsonTextFieldError {
+    #[error("McJsonText error: size ({actual} bytes) is more than limit ({max} bytes)")]
     TooLong { actual: usize, max: usize },
 
-    #[error("Length of JSON string ({0}) can't be less than zero")]
+    #[error("McJsonText error: length of JSON string ({0}) can't be less than zero")]
     InvalidLength(i32),
 
-    #[error("Not enough bytes in the buffer to read JSON")]
+    #[error("McJsonText error: Not enough bytes in the buffer to read JSON")]
     UnexpectedEof,
 
-    #[error("VarIntError: {0}")]
-    InvalidVarInt(McVarIntError),
+    #[error("McVarInt error while reading McJsonText: {0}")]
+    InvalidVarInt(#[from] McVarIntError),
 
-    #[error("I/O error: {0}")]
-    Io(std::io::Error),
-
-    #[error("JSON parsing error: {0}")]
+    #[error("JSON parsing error while reading McJsonText: {0}")]
     InvalidJson(#[from] serde_json::Error),
 }
 
-impl From<McVarIntError> for MCJsonFieldError {
-    fn from(err: McVarIntError) -> Self {
-        match err {
-            McVarIntError::Io(io_err) => MCJsonFieldError::Io(io_err),
-            McVarIntError::UnexpectedEof => MCJsonFieldError::UnexpectedEof,
-            other_err => MCJsonFieldError::InvalidVarInt(other_err),
-        }
-    }
-}
-impl From<std::io::Error> for MCJsonFieldError {
-    fn from(err: std::io::Error) -> Self {
-        if err.kind() == std::io::ErrorKind::UnexpectedEof {
-            Self::UnexpectedEof
-        } else {
-            Self::Io(err)
-        }
-    }
-}
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct McJsonTextComponent(serde_json::Value);
@@ -67,6 +46,9 @@ impl McJsonTextComponent {
                     if let Some(serde_json::Value::String(text)) = obj.get("text") {
                         out.push_str(text);
                     }
+                    if let Some(serde_json::Value::String(translate_key)) = obj.get("translate") {
+                        out.push_str(translate_key);
+                    }
                 }
                 _ => {}
             }
@@ -84,25 +66,25 @@ impl McJsonTextComponent {
 pub struct McJsonTextField<const MAX_SIZE: usize>;
 impl<const MAX_SIZE: usize> McReadBuf for McJsonTextField<MAX_SIZE> {
     type Output = McJsonTextComponent;
-    type Error = MCJsonFieldError;
+    type Error = MCJsonTextFieldError;
 
     fn read_from_buf(buf: &mut Bytes) -> Result<Self::Output, Self::Error> {
         let len_varint = McVarInt::read_from_buf(buf)?;
         let length = len_varint.0;
         if length < 0 {
-            return Err(MCJsonFieldError::InvalidLength(length));
+            return Err(MCJsonTextFieldError::InvalidLength(length));
         }
         let length = length as usize;
 
         if length > MAX_SIZE * 3 {
-            return Err(MCJsonFieldError::TooLong {
+            return Err(MCJsonTextFieldError::TooLong {
                 actual: length,
                 max: MAX_SIZE * 3,
             });
         }
 
         if buf.remaining() < length {
-            return Err(MCJsonFieldError::UnexpectedEof);
+            return Err(MCJsonTextFieldError::UnexpectedEof);
         }
 
         let json_bytes = buf.split_to(length);

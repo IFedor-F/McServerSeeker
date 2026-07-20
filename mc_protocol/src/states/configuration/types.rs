@@ -112,7 +112,7 @@ impl McReadBuf for RegistryTags {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ResourcePackIdent {
     UUID(Uuid),
     Hash(String),

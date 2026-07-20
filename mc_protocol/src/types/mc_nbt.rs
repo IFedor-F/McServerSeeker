@@ -14,24 +14,11 @@ pub enum McNbtFieldError {
     #[error("Invalid UTF-8 string in NBT: {0}")]
     InvalidUtf8(#[from] std::string::FromUtf8Error),
 
-    #[error("I/O error: {0}")]
-    Io(std::io::Error),
-
     #[error("Invalid NBT List length: {0}")]
     InvalidListLength(i32),
 
     #[error("Nbt structure is too deep")]
     NbtTooDeep,
-}
-
-impl From<std::io::Error> for McNbtFieldError {
-    fn from(err: std::io::Error) -> Self {
-        if err.kind() == std::io::ErrorKind::UnexpectedEof {
-            Self::UnexpectedEof
-        } else {
-            Self::Io(err)
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -263,7 +250,10 @@ fn read_nbt_string(buf: &mut Bytes) -> Result<String, McNbtFieldError> {
 pub struct McTextComponent(pub McNbtTag);
 
 impl McTextComponent {
-    pub fn read_from_buf_with_protocol(buf: &mut Bytes, protocol: i32) -> Result<Self, McNbtFieldError> {
+    pub fn read_from_buf_with_protocol(
+        buf: &mut Bytes,
+        protocol: i32,
+    ) -> Result<Self, McNbtFieldError> {
         Ok(Self(read_nbt_from_buf(buf, protocol)?))
     }
     fn extract_raw_text(value: &McNbtTag, out: &mut String) {
@@ -285,6 +275,8 @@ impl McTextComponent {
                     }
                     if let Some(McNbtTag::String(text)) = obj.get("text") {
                         out.push_str(text);
+                    } else if let Some(McNbtTag::String(translate_key)) = obj.get("translate") {
+                        out.push_str(translate_key);
                     }
                 }
                 _ => {}
@@ -300,10 +292,7 @@ impl McTextComponent {
 }
 
 #[inline(always)]
-pub fn read_nbt_from_buf(
-    buf: &mut Bytes,
-    protocol: i32,
-) -> Result<McNbtTag, McNbtFieldError> {
+pub fn read_nbt_from_buf(buf: &mut Bytes, protocol: i32) -> Result<McNbtTag, McNbtFieldError> {
     match protocol {
         ..764 => McLegacyNbtField::read_from_buf(buf),
         764.. => McModernNbtField::read_from_buf(buf),

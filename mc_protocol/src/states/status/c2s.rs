@@ -1,13 +1,13 @@
-mod ping_request_packet;
-pub use ping_request_packet::PingRequestPacket;
-mod status_request_packet;
-pub use status_request_packet::StatusRequestPacket;
+mod ping_request;
+pub use ping_request::PingRequestPacket;
+mod status_request;
+pub use status_request::StatusRequestPacket;
 
 use crate::connection::c2s::{ServerBoundPacket, ServerBoundState};
 use crate::impl_serverbound_state;
 
 #[derive(Debug)]
-pub enum StatusState {
+pub enum C2SStatusState {
     StatusRequest(StatusRequestPacket),
     PingRequest(PingRequestPacket),
 
@@ -15,7 +15,7 @@ pub enum StatusState {
 
 impl_serverbound_state! {
     state = "status";
-    enum StatusState;
+    enum C2SStatusState;
     match protocol {
         5..=776 => {
             0x00 => StatusRequest: StatusRequestPacket,

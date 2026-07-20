@@ -5,13 +5,13 @@ use std::marker::PhantomData;
 
 #[derive(Debug, thiserror::Error)]
 pub enum McPrefixedArrayError {
-    #[error("Failed to read array length: {0}")]
+    #[error("McPrefixedArray error: failed to read array length: {0}")]
     LengthError(#[from] McVarIntError),
 
-    #[error("Array length cannot be negative: {0}")]
+    #[error("McPrefixedArray error: array length cannot be negative: {0}")]
     NegativeLength(i32),
 
-    #[error("Failed to parse element at index {index}: {err}")]
+    #[error("McPrefixedArray error: failed to parse element at index {index}: {err}")]
     ElementError {
         index: usize,
         #[source]

@@ -1,4 +1,4 @@
-use super::types::DeathLocation;
+use super::types::{DeathLocation, Difficulty};
 use super::{ClientBoundPacket, ParsePacketError};
 use crate::connection::s2c::try_advance;
 use crate::types::{McBool, McPrefixedArrayField, McReadBuf, McStringField, McVarInt, mc_nbt};
@@ -24,9 +24,8 @@ pub struct LoginPacket {
     pub hashed_seed: Option<i64>,
     pub is_debug: Option<bool>,
     pub is_flat: Option<bool>,
-    pub difficulty: Option<u8>,
+    pub difficulty: Option<Difficulty>,
     pub level_type: Option<String>,
-
     pub death: Option<DeathLocation>,
     pub portal_cooldown: Option<i32>,
     pub sea_level: Option<i32>,
@@ -38,11 +37,11 @@ impl ClientBoundPacket for LoginPacket {
     fn parse(mut data: Bytes, protocol: i32) -> Result<Self, ParsePacketError> {
         let mut packet = LoginPacket::default();
         match protocol {
-            5..=46 => {
+            ..=46 => {
                 packet.entity_id = data.get_i32();
                 packet.game_mode = Some(data.get_u8());
                 packet.dimension_i32 = Some(data.get_i8() as i32);
-                packet.difficulty = Some(data.get_u8());
+                packet.difficulty = Some(Difficulty::from(data.get_u8()));
                 packet.max_players = Some(data.get_u8() as i32);
                 packet.level_type = Some(McStringField::<32767>::read_from_buf(&mut data)?);
             }
@@ -50,7 +49,7 @@ impl ClientBoundPacket for LoginPacket {
                 packet.entity_id = data.get_i32();
                 packet.game_mode = Some(data.get_u8());
                 packet.dimension_i32 = Some(data.get_i8() as i32);
-                packet.difficulty = Some(data.get_u8());
+                packet.difficulty = Some(Difficulty::from(data.get_u8()));
                 packet.max_players = Some(data.get_u8() as i32);
                 packet.level_type = Some(McStringField::<32767>::read_from_buf(&mut data)?);
                 packet.reduced_debug_info = Some(McBool::read_from_buf(&mut data)?);
@@ -59,7 +58,7 @@ impl ClientBoundPacket for LoginPacket {
                 packet.entity_id = data.get_i32();
                 packet.game_mode = Some(data.get_u8());
                 packet.dimension_i32 = Some(data.get_i32());
-                packet.difficulty = Some(data.get_u8());
+                packet.difficulty = Some(Difficulty::from(data.get_u8()));
                 packet.max_players = Some(data.get_u8() as i32);
                 packet.level_type = Some(McStringField::<32767>::read_from_buf(&mut data)?);
                 packet.reduced_debug_info = Some(McBool::read_from_buf(&mut data)?);
@@ -92,7 +91,7 @@ impl ClientBoundPacket for LoginPacket {
                     McPrefixedArrayField::<McStringField<32767>>::read_from_buf(&mut data)?,
                 );
                 _ = mc_nbt::read_nbt_from_buf(&mut data, protocol)?; // dimension codec
-                _ = mc_nbt::read_nbt_from_buf(&mut data, protocol)?; // dimension nbt
+                _ = McStringField::<32767>::read_from_buf(&mut data)?; // dimension identifier
                 packet.dimension_name = Some(McStringField::<32767>::read_from_buf(&mut data)?);
                 packet.hashed_seed = Some(data.get_i64());
                 packet.max_players = Some(data.get_u8() as i32);
@@ -278,7 +277,7 @@ impl ClientBoundPacket for LoginPacket {
                 packet.portal_cooldown = Some(McVarInt::read_from_buf(&mut data)?.0);
                 packet.enforces_secure_chat = Some(McBool::read_from_buf(&mut data)?);
             }
-            768..=776 => {
+            768.. => {
                 // + sea_level
                 packet.entity_id = data.get_i32();
                 packet.is_hardcore = Some(McBool::read_from_buf(&mut data)?);
@@ -310,12 +309,6 @@ impl ClientBoundPacket for LoginPacket {
                 packet.sea_level = Some(McVarInt::read_from_buf(&mut data)?.0);
                 packet.enforces_secure_chat = Some(McBool::read_from_buf(&mut data)?);
             }
-
-            _ => panic!(
-                "packet {} supports protocols 5 - 776, actual: {}",
-                Self::MC_NAME,
-                protocol
-            ),
         }
         Ok(packet)
     }

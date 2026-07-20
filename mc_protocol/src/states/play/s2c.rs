@@ -1,15 +1,16 @@
-mod commands_packet;
-pub use commands_packet::CommandsPacket;
-mod difficulty_packet;
-pub use difficulty_packet::ChangeDifficultyPacket;
-mod login_packet;
-pub use login_packet::LoginPacket;
-mod player_info_update;
-pub use player_info_update::PlayerInfoUpdatePacket;
+mod commands;
+pub use commands::CommandsPacket;
+mod difficulty;
+pub use difficulty::ChangeDifficultyPacket;
+mod login;
+pub use login::LoginPacket;
+mod player_info;
+pub use player_info::PlayerInfoUpdatePacket;
 
 // Packets from configuration (used in play state also with another ids)
 pub use crate::states::configuration::s2c::{
-    CookieRequestPacket, ResourcePackPushPacket, StoreCookiePacket,
+    CookieRequestPacket, CustomPayloadPacket, DisconnectPacket, KeepAlivePacket, PingPacket,
+    ResourcePackPushPacket, StoreCookiePacket,
 };
 
 use super::types;
@@ -19,7 +20,11 @@ use crate::impl_clientbound_state;
 use bytes::Bytes;
 
 #[derive(Debug)]
-pub enum PlayState {
+pub enum S2CPlayState {
+    Disconnect(DisconnectPacket),
+    KeepAlive(KeepAlivePacket),
+    Ping(PingPacket),
+    CustomPayload(CustomPayloadPacket),
     ChangeDifficulty(ChangeDifficultyPacket),
     Commands(CommandsPacket),
     CookieRequest(CookieRequestPacket),
@@ -32,22 +37,31 @@ pub enum PlayState {
 
 impl_clientbound_state! {
     state = "Play";
-    enum PlayState;
+    enum S2CPlayState;
     match protocol {
         5..=46 => {
+            0x00 => KeepAlive: KeepAlivePacket,
             0x01 => Login: LoginPacket,
             0x38 => PlayerInfoUpdate: PlayerInfoUpdatePacket,
+            0x3f => CustomPayload: CustomPayloadPacket,
+            0x40 => Disconnect: DisconnectPacket,
             0..=0x40 => Another: AnotherPacket,
         },
         47..=106 => {
+            0x00 => KeepAlive: KeepAlivePacket,
             0x01 => Login: LoginPacket,
             0x38 => PlayerInfoUpdate: PlayerInfoUpdatePacket,
+            0x3f => CustomPayload: CustomPayloadPacket,
+            0x40 => Disconnect: DisconnectPacket,
             0x41 => ChangeDifficulty: ChangeDifficultyPacket,
             0x48 => ResourcePackPush: ResourcePackPushPacket,
             0..=0x49 => Another: AnotherPacket,
         },
         107..=109 => {
             0x0d => ChangeDifficulty: ChangeDifficultyPacket,
+            0x18 => CustomPayload: CustomPayloadPacket,
+            0x1a => Disconnect: DisconnectPacket,
+            0x1f => KeepAlive: KeepAlivePacket,
             0x23 => Login: LoginPacket,
             0x2d => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x32 => ResourcePackPush: ResourcePackPushPacket,
@@ -55,6 +69,9 @@ impl_clientbound_state! {
         },
         110..=334 => {
             0x0d => ChangeDifficulty: ChangeDifficultyPacket,
+            0x18 => CustomPayload: CustomPayloadPacket,
+            0x1a => Disconnect: DisconnectPacket,
+            0x1f => KeepAlive: KeepAlivePacket,
             0x23 => Login: LoginPacket,
             0x2d => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x32 => ResourcePackPush: ResourcePackPushPacket,
@@ -62,6 +79,9 @@ impl_clientbound_state! {
         },
         335..=337 => {
             0x0d => ChangeDifficulty: ChangeDifficultyPacket,
+            0x18 => CustomPayload: CustomPayloadPacket,
+            0x1a => Disconnect: DisconnectPacket,
+            0x1f => KeepAlive: KeepAlivePacket,
             0x23 => Login: LoginPacket,
             0x2d => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x33 => ResourcePackPush: ResourcePackPushPacket,
@@ -69,6 +89,9 @@ impl_clientbound_state! {
         },
         338..=392 => {
             0x0d => ChangeDifficulty: ChangeDifficultyPacket,
+            0x18 => CustomPayload: CustomPayloadPacket,
+            0x1a => Disconnect: DisconnectPacket,
+            0x1f => KeepAlive: KeepAlivePacket,
             0x23 => Login: LoginPacket,
             0x2e => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x34 => ResourcePackPush: ResourcePackPushPacket,
@@ -77,6 +100,9 @@ impl_clientbound_state! {
         393..=476 => {
             0x0d => ChangeDifficulty: ChangeDifficultyPacket,
             0x11 => Commands: CommandsPacket,
+            0x19 => CustomPayload: CustomPayloadPacket,
+            0x1b => Disconnect: DisconnectPacket,
+            0x21 => KeepAlive: KeepAlivePacket,
             0x25 => Login: LoginPacket,
             0x30 => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x37 => ResourcePackPush: ResourcePackPushPacket,
@@ -85,6 +111,9 @@ impl_clientbound_state! {
         477..=497 => {
             0x0d => ChangeDifficulty: ChangeDifficultyPacket,
             0x11 => Commands: CommandsPacket,
+            0x18 => CustomPayload: CustomPayloadPacket,
+            0x1a => Disconnect: DisconnectPacket,
+            0x20 => KeepAlive: KeepAlivePacket,
             0x25 => Login: LoginPacket,
             0x33 => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x39 => ResourcePackPush: ResourcePackPushPacket,
@@ -93,6 +122,9 @@ impl_clientbound_state! {
         498..=572 => {
             0x0d => ChangeDifficulty: ChangeDifficultyPacket,
             0x11 => Commands: CommandsPacket,
+            0x18 => CustomPayload: CustomPayloadPacket,
+            0x1a => Disconnect: DisconnectPacket,
+            0x20 => KeepAlive: KeepAlivePacket,
             0x25 => Login: LoginPacket,
             0x33 => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x39 => ResourcePackPush: ResourcePackPushPacket,
@@ -101,6 +133,9 @@ impl_clientbound_state! {
         573..=734 => {
             0x0e => ChangeDifficulty: ChangeDifficultyPacket,
             0x12 => Commands: CommandsPacket,
+            0x19 => CustomPayload: CustomPayloadPacket,
+            0x1b => Disconnect: DisconnectPacket,
+            0x21 => KeepAlive: KeepAlivePacket,
             0x26 => Login: LoginPacket,
             0x34 => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x3a => ResourcePackPush: ResourcePackPushPacket,
@@ -109,6 +144,9 @@ impl_clientbound_state! {
         735..=750 => {
             0x0d => ChangeDifficulty: ChangeDifficultyPacket,
             0x11 => Commands: CommandsPacket,
+            0x18 => CustomPayload: CustomPayloadPacket,
+            0x1a => Disconnect: DisconnectPacket,
+            0x20 => KeepAlive: KeepAlivePacket,
             0x25 => Login: LoginPacket,
             0x33 => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x39 => ResourcePackPush: ResourcePackPushPacket,
@@ -117,6 +155,9 @@ impl_clientbound_state! {
         751..=754 => {
             0x0d => ChangeDifficulty: ChangeDifficultyPacket,
             0x10 => Commands: CommandsPacket,
+            0x17 => CustomPayload: CustomPayloadPacket,
+            0x19 => Disconnect: DisconnectPacket,
+            0x1f => KeepAlive: KeepAlivePacket,
             0x24 => Login: LoginPacket,
             0x32 => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x38 => ResourcePackPush: ResourcePackPushPacket,
@@ -125,7 +166,11 @@ impl_clientbound_state! {
         755..=756 => {
             0x0e => ChangeDifficulty: ChangeDifficultyPacket,
             0x12 => Commands: CommandsPacket,
+            0x18 => CustomPayload: CustomPayloadPacket,
+            0x1a => Disconnect: DisconnectPacket,
+            0x21 => KeepAlive: KeepAlivePacket,
             0x26 => Login: LoginPacket,
+            0x30 => Ping: PingPacket,
             0x36 => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x3c => ResourcePackPush: ResourcePackPushPacket,
             0..=0x66 => Another: AnotherPacket,
@@ -133,7 +178,11 @@ impl_clientbound_state! {
         757..=758 => {
             0x0e => ChangeDifficulty: ChangeDifficultyPacket,
             0x12 => Commands: CommandsPacket,
+            0x18 => CustomPayload: CustomPayloadPacket,
+            0x1a => Disconnect: DisconnectPacket,
+            0x21 => KeepAlive: KeepAlivePacket,
             0x26 => Login: LoginPacket,
+            0x30 => Ping: PingPacket,
             0x36 => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x3c => ResourcePackPush: ResourcePackPushPacket,
             0..=0x67 => Another: AnotherPacket,
@@ -141,7 +190,11 @@ impl_clientbound_state! {
         759 => {
             0x0b => ChangeDifficulty: ChangeDifficultyPacket,
             0x0f => Commands: CommandsPacket,
+            0x15 => CustomPayload: CustomPayloadPacket,
+            0x17 => Disconnect: DisconnectPacket,
+            0x1e => KeepAlive: KeepAlivePacket,
             0x23 => Login: LoginPacket,
+            0x2d => Ping: PingPacket,
             0x34 => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x3a => ResourcePackPush: ResourcePackPushPacket,
             0..=0x68 => Another: AnotherPacket,
@@ -149,7 +202,11 @@ impl_clientbound_state! {
         760 => {
             0x0b => ChangeDifficulty: ChangeDifficultyPacket,
             0x0f => Commands: CommandsPacket,
+            0x16 => CustomPayload: CustomPayloadPacket,
+            0x19 => Disconnect: DisconnectPacket,
+            0x20 => KeepAlive: KeepAlivePacket,
             0x25 => Login: LoginPacket,
+            0x2f => Ping: PingPacket,
             0x37 => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x3d => ResourcePackPush: ResourcePackPushPacket,
             0..=0x6b => Another: AnotherPacket,
@@ -157,7 +214,11 @@ impl_clientbound_state! {
         761 => {
             0x0b => ChangeDifficulty: ChangeDifficultyPacket,
             0x0e => Commands: CommandsPacket,
+            0x15 => CustomPayload: CustomPayloadPacket,
+            0x17 => Disconnect: DisconnectPacket,
+            0x1f => KeepAlive: KeepAlivePacket,
             0x24 => Login: LoginPacket,
+            0x2e => Ping: PingPacket,
             0x36 => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x3c => ResourcePackPush: ResourcePackPushPacket,
             0..=0x6a => Another: AnotherPacket,
@@ -165,7 +226,11 @@ impl_clientbound_state! {
         762..=763 => {
             0x0c => ChangeDifficulty: ChangeDifficultyPacket,
             0x10 => Commands: CommandsPacket,
+            0x17 => CustomPayload: CustomPayloadPacket,
+            0x1a => Disconnect: DisconnectPacket,
+            0x23 => KeepAlive: KeepAlivePacket,
             0x28 => Login: LoginPacket,
+            0x32 => Ping: PingPacket,
             0x3a => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x40 => ResourcePackPush: ResourcePackPushPacket,
             0..=0x6e => Another: AnotherPacket,
@@ -173,7 +238,11 @@ impl_clientbound_state! {
         764 => {
             0x0b => ChangeDifficulty: ChangeDifficultyPacket,
             0x11 => Commands: CommandsPacket,
+            0x18 => CustomPayload: CustomPayloadPacket,
+            0x1b => Disconnect: DisconnectPacket,
+            0x24 => KeepAlive: KeepAlivePacket,
             0x29 => Login: LoginPacket,
+            0x33 => Ping: PingPacket,
             0x3c => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x42 => ResourcePackPush: ResourcePackPushPacket,
             0..=0x70 => Another: AnotherPacket,
@@ -181,7 +250,11 @@ impl_clientbound_state! {
         765 => {
             0x0b => ChangeDifficulty: ChangeDifficultyPacket,
             0x11 => Commands: CommandsPacket,
+            0x18 => CustomPayload: CustomPayloadPacket,
+            0x1b => Disconnect: DisconnectPacket,
+            0x24 => KeepAlive: KeepAlivePacket,
             0x29 => Login: LoginPacket,
+            0x33 => Ping: PingPacket,
             0x3c => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x44 => ResourcePackPush: ResourcePackPushPacket,
             0..=0x74 => Another: AnotherPacket,
@@ -190,7 +263,11 @@ impl_clientbound_state! {
             0x0b => ChangeDifficulty: ChangeDifficultyPacket,
             0x11 => Commands: CommandsPacket,
             0x16 => CookieRequest: CookieRequestPacket,
+            0x19 => CustomPayload: CustomPayloadPacket,
+            0x1d => Disconnect: DisconnectPacket,
+            0x26 => KeepAlive: KeepAlivePacket,
             0x2b => Login: LoginPacket,
+            0x35 => Ping: PingPacket,
             0x3e => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x46 => ResourcePackPush: ResourcePackPushPacket,
             0x6b => StoreCookie: StoreCookiePacket,
@@ -200,7 +277,11 @@ impl_clientbound_state! {
             0x0b => ChangeDifficulty: ChangeDifficultyPacket,
             0x11 => Commands: CommandsPacket,
             0x16 => CookieRequest: CookieRequestPacket,
+            0x19 => CustomPayload: CustomPayloadPacket,
+            0x1d => Disconnect: DisconnectPacket,
+            0x26 => KeepAlive: KeepAlivePacket,
             0x2b => Login: LoginPacket,
+            0x35 => Ping: PingPacket,
             0x3e => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x46 => ResourcePackPush: ResourcePackPushPacket,
             0x6b => StoreCookie: StoreCookiePacket,
@@ -210,7 +291,11 @@ impl_clientbound_state! {
             0x0b => ChangeDifficulty: ChangeDifficultyPacket,
             0x11 => Commands: CommandsPacket,
             0x16 => CookieRequest: CookieRequestPacket,
+            0x19 => CustomPayload: CustomPayloadPacket,
+            0x1d => Disconnect: DisconnectPacket,
+            0x27 => KeepAlive: KeepAlivePacket,
             0x2c => Login: LoginPacket,
+            0x37 => Ping: PingPacket,
             0x40 => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x4b => ResourcePackPush: ResourcePackPushPacket,
             0x72 => StoreCookie: StoreCookiePacket,
@@ -220,7 +305,11 @@ impl_clientbound_state! {
             0x0a => ChangeDifficulty: ChangeDifficultyPacket,
             0x10 => Commands: CommandsPacket,
             0x15 => CookieRequest: CookieRequestPacket,
+            0x18 => CustomPayload: CustomPayloadPacket,
+            0x1c => Disconnect: DisconnectPacket,
+            0x26 => KeepAlive: KeepAlivePacket,
             0x2b => Login: LoginPacket,
+            0x36 => Ping: PingPacket,
             0x3f => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x4a => ResourcePackPush: ResourcePackPushPacket,
             0x71 => StoreCookie: StoreCookiePacket,
@@ -230,7 +319,11 @@ impl_clientbound_state! {
             0x0a => ChangeDifficulty: ChangeDifficultyPacket,
             0x10 => Commands: CommandsPacket,
             0x15 => CookieRequest: CookieRequestPacket,
+            0x18 => CustomPayload: CustomPayloadPacket,
+            0x1c => Disconnect: DisconnectPacket,
+            0x26 => KeepAlive: KeepAlivePacket,
             0x2b => Login: LoginPacket,
+            0x36 => Ping: PingPacket,
             0x3f => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x4a => ResourcePackPush: ResourcePackPushPacket,
             0x71 => StoreCookie: StoreCookiePacket,
@@ -240,7 +333,11 @@ impl_clientbound_state! {
             0x0a => ChangeDifficulty: ChangeDifficultyPacket,
             0x10 => Commands: CommandsPacket,
             0x15 => CookieRequest: CookieRequestPacket,
+            0x18 => CustomPayload: CustomPayloadPacket,
+            0x20 => Disconnect: DisconnectPacket,
+            0x2b => KeepAlive: KeepAlivePacket,
             0x30 => Login: LoginPacket,
+            0x3b => Ping: PingPacket,
             0x44 => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x4f => ResourcePackPush: ResourcePackPushPacket,
             0x76 => StoreCookie: StoreCookiePacket,
@@ -250,7 +347,11 @@ impl_clientbound_state! {
             0x0a => ChangeDifficulty: ChangeDifficultyPacket,
             0x10 => Commands: CommandsPacket,
             0x15 => CookieRequest: CookieRequestPacket,
+            0x18 => CustomPayload: CustomPayloadPacket,
+            0x20 => Disconnect: DisconnectPacket,
+            0x2c => KeepAlive: KeepAlivePacket,
             0x31 => Login: LoginPacket,
+            0x3d => Ping: PingPacket,
             0x46 => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x51 => ResourcePackPush: ResourcePackPushPacket,
             0x78 => StoreCookie: StoreCookiePacket,

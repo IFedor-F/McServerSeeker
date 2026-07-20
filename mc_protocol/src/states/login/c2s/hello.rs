@@ -12,9 +12,9 @@ pub struct HelloPacket {
 }
 
 impl HelloPacket {
-    pub fn from_player(player: Player) -> Self {
+    pub fn from_player(player: &Player) -> Self {
         Self {
-            name: player.name,
+            name: player.name.clone(),
             uuid: Some(player.uuid),
         }
     }
