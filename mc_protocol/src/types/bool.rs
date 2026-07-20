@@ -60,7 +60,7 @@ impl McReadBuf for McBool {
     type Error = McBoolError;
 
     fn read_from_buf(buf: &mut Bytes) -> Result<Self::Output, Self::Error> {
-        let value = buf.get_u8();
+        let value = buf.try_get_u8()?;
         match value {
             0 => Ok(false),
             1 => Ok(true),

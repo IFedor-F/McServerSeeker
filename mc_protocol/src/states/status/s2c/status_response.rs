@@ -99,7 +99,7 @@ fn parse_forge_data(forge_data: &mut ForgeData) -> Result<(), ParsePacketError> 
     let mut buf = Bytes::from(decoded_bytes);
 
     forge_data.fml_network_version = Some(McVarInt::read_from_buf(&mut buf)?.0);
-    let _truncated = buf.get_u8() != 0;
+    let _truncated = buf.try_get_u8()? != 0;
     let namespaces_count = McVarInt::read_from_buf(&mut buf)?.0;
 
     for _ in 0..namespaces_count {
@@ -126,7 +126,7 @@ fn parse_forge_data(forge_data: &mut ForgeData) -> Result<(), ParsePacketError> 
         for _ in 0..channels_count {
             let channel_name = McStringField::<32767>::read_from_buf(&mut buf)?;
             let channel_version = McVarInt::read_from_buf(&mut buf)?.0;
-            let required = buf.get_u8() != 0;
+            let required = buf.try_get_u8()? != 0;
             channels.push(ForgeChannel {
                 res: format!("{}:{}", namespace_name, channel_name),
                 version: channel_version.to_string(),

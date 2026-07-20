@@ -19,7 +19,7 @@ impl ClientBoundPacket for CommandsPacket {
                 break;
             }
 
-            let flags = data.get_u8();
+            let flags = data.try_get_u8()?;
             let node_type = flags & 0x03;
             let children_count = McVarInt::read_from_buf(&mut data)?.with_min_check(0)?.0 as usize;
 

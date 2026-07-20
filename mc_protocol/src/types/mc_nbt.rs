@@ -1,5 +1,5 @@
 use crate::types::McReadBuf;
-use bytes::{Buf, Bytes};
+use bytes::{Buf, Bytes, TryGetError};
 use std::collections::HashMap;
 use thiserror::Error;
 
@@ -19,6 +19,11 @@ pub enum McNbtFieldError {
 
     #[error("Nbt structure is too deep")]
     NbtTooDeep,
+}
+impl From<TryGetError> for McNbtFieldError {
+    fn from(_: TryGetError) -> Self {
+        Self::UnexpectedEof
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -47,19 +52,12 @@ impl McReadBuf for McLegacyNbtField {
     type Error = McNbtFieldError;
 
     fn read_from_buf(buf: &mut Bytes) -> Result<Self::Output, Self::Error> {
-        if !buf.has_remaining() {
-            return Err(McNbtFieldError::UnexpectedEof);
-        }
-
-        let root_tag_id = buf.get_u8();
+        let root_tag_id = buf.try_get_u8()?;
         if root_tag_id == 0 {
             return Ok(McNbtTag::End);
         }
 
-        if buf.remaining() < 2 {
-            return Err(McNbtFieldError::UnexpectedEof);
-        }
-        let name_len = buf.get_u16();
+        let name_len = buf.try_get_u16()?;
         if buf.remaining() < name_len as usize {
             return Err(McNbtFieldError::UnexpectedEof);
         }
@@ -76,11 +74,7 @@ impl McReadBuf for McModernNbtField {
     type Error = McNbtFieldError;
 
     fn read_from_buf(buf: &mut Bytes) -> Result<Self::Output, Self::Error> {
-        if !buf.has_remaining() {
-            return Err(McNbtFieldError::UnexpectedEof);
-        }
-
-        let root_tag_id = buf.get_u8();
+        let root_tag_id = buf.try_get_u8()?;
         if root_tag_id == 0 {
             return Ok(McNbtTag::End);
         }
@@ -101,47 +95,26 @@ fn read_nbt_payload(
     match tag_id {
         0 => Ok(McNbtTag::End),
         1 => {
-            if !buf.has_remaining() {
-                return Err(McNbtFieldError::UnexpectedEof);
-            }
-            Ok(McNbtTag::Byte(buf.get_i8()))
+            Ok(McNbtTag::Byte(buf.try_get_i8()?))
         }
         2 => {
-            if buf.remaining() < 2 {
-                return Err(McNbtFieldError::UnexpectedEof);
-            }
-            Ok(McNbtTag::Short(buf.get_i16()))
+            Ok(McNbtTag::Short(buf.try_get_i16()?))
         }
         3 => {
-            if buf.remaining() < 4 {
-                return Err(McNbtFieldError::UnexpectedEof);
-            }
-            Ok(McNbtTag::Int(buf.get_i32()))
+            Ok(McNbtTag::Int(buf.try_get_i32()?))
         }
         4 => {
-            if buf.remaining() < 8 {
-                return Err(McNbtFieldError::UnexpectedEof);
-            }
-            Ok(McNbtTag::Long(buf.get_i64()))
+            Ok(McNbtTag::Long(buf.try_get_i64()?))
         }
         5 => {
-            if buf.remaining() < 4 {
-                return Err(McNbtFieldError::UnexpectedEof);
-            }
-            Ok(McNbtTag::Float(buf.get_f32()))
+            Ok(McNbtTag::Float(buf.try_get_f32()?))
         }
         6 => {
-            if buf.remaining() < 8 {
-                return Err(McNbtFieldError::UnexpectedEof);
-            }
-            Ok(McNbtTag::Double(buf.get_f64()))
+            Ok(McNbtTag::Double(buf.try_get_f64()?))
         }
         7 => {
             // TAG_Byte_Array
-            if buf.remaining() < 4 {
-                return Err(McNbtFieldError::UnexpectedEof);
-            }
-            let len = buf.get_i32();
+            let len = buf.try_get_i32()?;
             if len < 0 || buf.remaining() < len as usize {
                 return Err(McNbtFieldError::UnexpectedEof);
             }
@@ -183,11 +156,7 @@ fn read_nbt_payload(
             // TAG_Compound
             let mut map = HashMap::new();
             loop {
-                if !buf.has_remaining() {
-                    return Err(McNbtFieldError::UnexpectedEof);
-                }
-                let item_id = buf.get_u8();
-
+                let item_id = buf.try_get_u8()?;
                 if item_id == 0 {
                     break;
                 }
@@ -200,10 +169,7 @@ fn read_nbt_payload(
         }
         11 => {
             // TAG_Int_Array
-            if buf.remaining() < 4 {
-                return Err(McNbtFieldError::UnexpectedEof);
-            }
-            let len = buf.get_i32();
+            let len = buf.try_get_i32()?;
             if len < 0 || buf.remaining() < (len as usize * 4) {
                 return Err(McNbtFieldError::UnexpectedEof);
             }
@@ -215,10 +181,7 @@ fn read_nbt_payload(
         }
         12 => {
             // TAG_Long_Array
-            if buf.remaining() < 4 {
-                return Err(McNbtFieldError::UnexpectedEof);
-            }
-            let len = buf.get_i32();
+            let len = buf.try_get_i32()?;
             if len < 0 || buf.remaining() < (len as usize * 8) {
                 return Err(McNbtFieldError::UnexpectedEof);
             }
@@ -233,10 +196,7 @@ fn read_nbt_payload(
 }
 
 fn read_nbt_string(buf: &mut Bytes) -> Result<String, McNbtFieldError> {
-    if buf.remaining() < 2 {
-        return Err(McNbtFieldError::UnexpectedEof);
-    }
-    let len = buf.get_u16() as usize;
+    let len = buf.try_get_u16()? as usize;
     if buf.remaining() < len {
         return Err(McNbtFieldError::UnexpectedEof);
     }

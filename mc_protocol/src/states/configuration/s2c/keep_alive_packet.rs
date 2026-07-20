@@ -12,13 +12,13 @@ impl ClientBoundPacket for KeepAlivePacket {
     fn parse(mut data: Bytes, protocol: i32) -> Result<Self, ParsePacketError> {
         let keep_alive_id = match protocol {
             ..=46 => {
-                data.get_i32() as i64
+                data.try_get_i32()? as i64
             },
             47..=339 => {
                 McVarInt::read_from_buf(&mut data)?.0 as i64
             },
             340.. => {
-                data.get_i64()
+                data.try_get_i64()?
             },
         };
         Ok(Self { keep_alive_id })
