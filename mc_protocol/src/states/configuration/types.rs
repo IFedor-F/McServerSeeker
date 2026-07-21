@@ -148,3 +148,20 @@ impl McReadBuf for KnownPack {
         })
     }
 }
+
+#[derive(Debug)]
+pub enum CustomPayloadData {
+    MinecraftBrand(String),
+    Unrecognized(Bytes),
+}
+impl CustomPayloadData {
+    pub fn new(channel: &str, mut data: Bytes) -> Result<Self, ParsePacketError> {
+        match channel {
+            "minecraft:brand" | "MC|Brand" => {
+                let brand = McStringField::<32768>::read_from_buf(&mut data)?;
+                Ok(Self::MinecraftBrand(brand))
+            }
+            _ => Ok(Self::Unrecognized(data)),
+        }
+    }
+}
