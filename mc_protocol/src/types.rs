@@ -13,11 +13,15 @@ pub use mc_nbt::{McLegacyNbtField, McModernNbtField, McNbtFieldError, McNbtTag, 
 pub mod game_profile;
 pub use game_profile::{GameProfile, GameProfileProperty};
 pub mod player;
-pub use player::{Player, PlayerInvalidUUID};
+pub use player::{Player, PlayerParseError};
 pub mod mc_version;
 pub use mc_version::{McVersion, McVersionEnum};
 pub mod chat;
 pub use chat::{McChat, McChatError};
+pub mod difficulty;
+pub use difficulty::Difficulty;
+pub mod gamemode;
+pub use gamemode::GameMode;
 
 pub(crate) trait McReadBuf {
     type Output;

@@ -10,7 +10,7 @@ pub use player_info::PlayerInfoUpdatePacket;
 // Packets from configuration (used in play state also with another ids)
 pub use crate::states::configuration::s2c::{
     CookieRequestPacket, CustomPayloadPacket, DisconnectPacket, KeepAlivePacket, PingPacket,
-    ResourcePackPushPacket, StoreCookiePacket,
+    ResourcePackPushPacket, ServerLinksPacket, StoreCookiePacket,
 };
 
 use super::types;
@@ -32,6 +32,7 @@ pub enum S2CPlayState {
     PlayerInfoUpdate(PlayerInfoUpdatePacket),
     ResourcePackPush(ResourcePackPushPacket),
     StoreCookie(StoreCookiePacket),
+    ServerLinks(ServerLinksPacket),
     Another(AnotherPacket), // Other uninteresting packets
 }
 
@@ -285,6 +286,7 @@ impl_clientbound_state! {
             0x3e => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x46 => ResourcePackPush: ResourcePackPushPacket,
             0x6b => StoreCookie: StoreCookiePacket,
+            0x7b => ServerLinks: ServerLinksPacket,
             0..=0x7b => Another: AnotherPacket,
         },
         768..=769 => {
@@ -299,6 +301,7 @@ impl_clientbound_state! {
             0x40 => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x4b => ResourcePackPush: ResourcePackPushPacket,
             0x72 => StoreCookie: StoreCookiePacket,
+            0x82 => ServerLinks: ServerLinksPacket,
             0..=0x82 => Another: AnotherPacket,
         },
         770 => {
@@ -313,6 +316,7 @@ impl_clientbound_state! {
             0x3f => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x4a => ResourcePackPush: ResourcePackPushPacket,
             0x71 => StoreCookie: StoreCookiePacket,
+            0x82 => ServerLinks: ServerLinksPacket,
             0..=0x82 => Another: AnotherPacket,
         },
         771..=772 => {
@@ -327,6 +331,7 @@ impl_clientbound_state! {
             0x3f => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x4a => ResourcePackPush: ResourcePackPushPacket,
             0x71 => StoreCookie: StoreCookiePacket,
+            0x82 => ServerLinks: ServerLinksPacket,
             0..=0x85 => Another: AnotherPacket,
         },
         773..=774 => {
@@ -341,6 +346,7 @@ impl_clientbound_state! {
             0x44 => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x4f => ResourcePackPush: ResourcePackPushPacket,
             0x76 => StoreCookie: StoreCookiePacket,
+            0x87 => ServerLinks: ServerLinksPacket,
             0..=0x8a => Another: AnotherPacket,
         },
         775..=776 => {
@@ -355,6 +361,7 @@ impl_clientbound_state! {
             0x46 => PlayerInfoUpdate: PlayerInfoUpdatePacket,
             0x51 => ResourcePackPush: ResourcePackPushPacket,
             0x78 => StoreCookie: StoreCookiePacket,
+            0x89 => ServerLinks: ServerLinksPacket,
             0..=0x8c => Another: AnotherPacket,
         },
     }

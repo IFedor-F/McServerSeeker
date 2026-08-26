@@ -1,18 +1,20 @@
-use super::types::{DeathLocation, Difficulty};
+use super::types::DeathLocation;
 use super::{ClientBoundPacket, ParsePacketError};
 use crate::connection::s2c::try_advance;
-use crate::types::{McBool, McPrefixedArrayField, McReadBuf, McStringField, McVarInt, mc_nbt};
+use crate::types::{
+    Difficulty, GameMode, McBool, McPrefixedArrayField, McReadBuf, McStringField, McVarInt, mc_nbt,
+};
 use bytes::{Buf, Bytes};
 
 #[derive(Debug, Default)]
 pub struct LoginPacket {
     pub entity_id: i32,
+    pub game_mode: GameMode,
+    pub max_players: i32,
     pub is_hardcore: Option<bool>,
-    pub game_mode: Option<u8>,
     pub dimension_names: Option<Vec<String>>,
-    pub max_players: Option<i32>,
-    pub view_distance: Option<i32>,
-    pub simulation_distance: Option<i32>,
+    pub view_distance: Option<u16>,
+    pub simulation_distance: Option<u16>,
     pub reduced_debug_info: Option<bool>,
     pub enable_respawn_screen: Option<bool>,
     pub do_limited_crafting: Option<bool>,
@@ -39,53 +41,55 @@ impl ClientBoundPacket for LoginPacket {
         match protocol {
             ..=46 => {
                 packet.entity_id = data.try_get_i32()?;
-                packet.game_mode = Some(data.try_get_u8()?);
+                packet.game_mode = GameMode::try_from(data.try_get_u8()?)?;
                 packet.dimension_i32 = Some(data.try_get_i8()? as i32);
-                packet.difficulty = Some(Difficulty::from(data.try_get_u8()?));
-                packet.max_players = Some(data.try_get_u8()? as i32);
+                packet.difficulty = Some(Difficulty::try_from(data.try_get_u8()?)?);
+                packet.max_players = data.try_get_u8()? as i32;
                 packet.level_type = Some(McStringField::<32767>::read_from_buf(&mut data)?);
             }
             47..=107 => {
                 packet.entity_id = data.try_get_i32()?;
-                packet.game_mode = Some(data.try_get_u8()?);
+                packet.game_mode = GameMode::try_from(data.try_get_u8()?)?;
                 packet.dimension_i32 = Some(data.try_get_i8()? as i32);
-                packet.difficulty = Some(Difficulty::from(data.try_get_u8()?));
-                packet.max_players = Some(data.try_get_u8()? as i32);
+                packet.difficulty = Some(Difficulty::try_from(data.try_get_u8()?)?);
+                packet.max_players = data.try_get_u8()? as i32;
                 packet.level_type = Some(McStringField::<32767>::read_from_buf(&mut data)?);
                 packet.reduced_debug_info = Some(McBool::read_from_buf(&mut data)?);
             }
             108..=476 => {
                 packet.entity_id = data.try_get_i32()?;
-                packet.game_mode = Some(data.try_get_u8()?);
+                packet.game_mode = GameMode::try_from(data.try_get_u8()?)?;
                 packet.dimension_i32 = Some(data.try_get_i32()?);
-                packet.difficulty = Some(Difficulty::from(data.try_get_u8()?));
-                packet.max_players = Some(data.try_get_u8()? as i32);
+                packet.difficulty = Some(Difficulty::try_from(data.try_get_u8()?)?);
+                packet.max_players = data.try_get_u8()? as i32;
                 packet.level_type = Some(McStringField::<32767>::read_from_buf(&mut data)?);
                 packet.reduced_debug_info = Some(McBool::read_from_buf(&mut data)?);
             }
             477..=572 => {
                 packet.entity_id = data.try_get_i32()?;
-                packet.game_mode = Some(data.try_get_u8()?);
+                packet.game_mode = GameMode::try_from(data.try_get_u8()?)?;
                 packet.dimension_i32 = Some(data.try_get_i32()?);
-                packet.max_players = Some(data.try_get_u8()? as i32);
+                packet.max_players = data.try_get_u8()? as i32;
                 packet.level_type = Some(McStringField::<32767>::read_from_buf(&mut data)?);
-                packet.view_distance = Some(McVarInt::read_from_buf(&mut data)?.0);
+                packet.view_distance =
+                    Some(McVarInt::read_from_buf(&mut data)?.with_min_check(0)?.0 as u16);
                 packet.reduced_debug_info = Some(McBool::read_from_buf(&mut data)?);
             }
             573..=733 => {
                 packet.entity_id = data.try_get_i32()?;
-                packet.game_mode = Some(data.try_get_u8()?);
+                packet.game_mode = GameMode::try_from(data.try_get_u8()?)?;
                 packet.dimension_i32 = Some(data.try_get_i32()?);
                 packet.hashed_seed = Some(data.try_get_i64()?);
-                packet.max_players = Some(data.try_get_u8()? as i32);
+                packet.max_players = data.try_get_u8()? as i32;
                 packet.level_type = Some(McStringField::<32767>::read_from_buf(&mut data)?);
-                packet.view_distance = Some(McVarInt::read_from_buf(&mut data)?.0);
+                packet.view_distance =
+                    Some(McVarInt::read_from_buf(&mut data)?.with_min_check(0)?.0 as u16);
                 packet.reduced_debug_info = Some(McBool::read_from_buf(&mut data)?);
                 packet.enable_respawn_screen = Some(McBool::read_from_buf(&mut data)?);
             }
             734..=737 => {
                 packet.entity_id = data.try_get_i32()?;
-                packet.game_mode = Some(data.try_get_u8()?);
+                packet.game_mode = GameMode::try_from(data.try_get_u8()?)?;
                 try_advance(&mut data, 1)?; // previous_game_mode
                 packet.dimension_names = Some(
                     McPrefixedArrayField::<McStringField<32767>>::read_from_buf(&mut data)?,
@@ -94,8 +98,9 @@ impl ClientBoundPacket for LoginPacket {
                 _ = McStringField::<32767>::read_from_buf(&mut data)?; // dimension identifier
                 packet.dimension_name = Some(McStringField::<32767>::read_from_buf(&mut data)?);
                 packet.hashed_seed = Some(data.try_get_i64()?);
-                packet.max_players = Some(data.try_get_u8()? as i32);
-                packet.view_distance = Some(McVarInt::read_from_buf(&mut data)?.0);
+                packet.max_players = data.try_get_u8()? as i32;
+                packet.view_distance =
+                    Some(McVarInt::read_from_buf(&mut data)?.with_min_check(0)?.0 as u16);
                 packet.reduced_debug_info = Some(McBool::read_from_buf(&mut data)?);
                 packet.enable_respawn_screen = Some(McBool::read_from_buf(&mut data)?);
                 packet.is_debug = Some(McBool::read_from_buf(&mut data)?);
@@ -104,7 +109,7 @@ impl ClientBoundPacket for LoginPacket {
             738..=750 => {
                 packet.entity_id = data.try_get_i32()?;
                 packet.is_hardcore = Some(McBool::read_from_buf(&mut data)?);
-                packet.game_mode = Some(data.try_get_u8()?);
+                packet.game_mode = GameMode::try_from(data.try_get_u8()?)?;
                 try_advance(&mut data, 1)?; // previous_game_mode
                 packet.dimension_names = Some(
                     McPrefixedArrayField::<McStringField<32767>>::read_from_buf(&mut data)?,
@@ -113,8 +118,9 @@ impl ClientBoundPacket for LoginPacket {
                 _ = mc_nbt::read_nbt_from_buf(&mut data, protocol)?; // dimension nbt
                 packet.dimension_name = Some(McStringField::<32767>::read_from_buf(&mut data)?);
                 packet.hashed_seed = Some(data.try_get_i64()?);
-                packet.max_players = Some(data.try_get_u8()? as i32);
-                packet.view_distance = Some(McVarInt::read_from_buf(&mut data)?.0);
+                packet.max_players = data.try_get_u8()? as i32;
+                packet.view_distance =
+                    Some(McVarInt::read_from_buf(&mut data)?.with_min_check(0)?.0 as u16);
                 packet.reduced_debug_info = Some(McBool::read_from_buf(&mut data)?);
                 packet.enable_respawn_screen = Some(McBool::read_from_buf(&mut data)?);
                 packet.is_debug = Some(McBool::read_from_buf(&mut data)?);
@@ -124,7 +130,7 @@ impl ClientBoundPacket for LoginPacket {
             751..=756 => {
                 packet.entity_id = data.try_get_i32()?;
                 packet.is_hardcore = Some(McBool::read_from_buf(&mut data)?);
-                packet.game_mode = Some(data.try_get_u8()?);
+                packet.game_mode = GameMode::try_from(data.try_get_u8()?)?;
                 try_advance(&mut data, 1)?; // previous_game_mode
                 packet.dimension_names = Some(
                     McPrefixedArrayField::<McStringField<32767>>::read_from_buf(&mut data)?,
@@ -133,8 +139,9 @@ impl ClientBoundPacket for LoginPacket {
                 _ = mc_nbt::read_nbt_from_buf(&mut data, protocol)?; // dimension nbt
                 packet.dimension_name = Some(McStringField::<32767>::read_from_buf(&mut data)?);
                 packet.hashed_seed = Some(data.try_get_i64()?);
-                packet.max_players = Some(McVarInt::read_from_buf(&mut data)?.0);
-                packet.view_distance = Some(McVarInt::read_from_buf(&mut data)?.0);
+                packet.max_players = McVarInt::read_from_buf(&mut data)?.0;
+                packet.view_distance =
+                    Some(McVarInt::read_from_buf(&mut data)?.with_min_check(0)?.0 as u16);
                 packet.reduced_debug_info = Some(McBool::read_from_buf(&mut data)?);
                 packet.enable_respawn_screen = Some(McBool::read_from_buf(&mut data)?);
                 packet.is_debug = Some(McBool::read_from_buf(&mut data)?);
@@ -144,7 +151,7 @@ impl ClientBoundPacket for LoginPacket {
                 // + simulation_distance
                 packet.entity_id = data.try_get_i32()?;
                 packet.is_hardcore = Some(McBool::read_from_buf(&mut data)?);
-                packet.game_mode = Some(data.try_get_u8()?);
+                packet.game_mode = GameMode::try_from(data.try_get_u8()?)?;
                 try_advance(&mut data, 1)?; // previous_game_mode
                 packet.dimension_names = Some(
                     McPrefixedArrayField::<McStringField<32767>>::read_from_buf(&mut data)?,
@@ -153,9 +160,11 @@ impl ClientBoundPacket for LoginPacket {
                 _ = mc_nbt::read_nbt_from_buf(&mut data, protocol)?; // dimension type (nbt)
                 packet.dimension_name = Some(McStringField::<32767>::read_from_buf(&mut data)?);
                 packet.hashed_seed = Some(data.try_get_i64()?);
-                packet.max_players = Some(McVarInt::read_from_buf(&mut data)?.0);
-                packet.view_distance = Some(McVarInt::read_from_buf(&mut data)?.0);
-                packet.simulation_distance = Some(McVarInt::read_from_buf(&mut data)?.0);
+                packet.max_players = McVarInt::read_from_buf(&mut data)?.0;
+                packet.view_distance =
+                    Some(McVarInt::read_from_buf(&mut data)?.with_min_check(0)?.0 as u16);
+                packet.simulation_distance =
+                    Some(McVarInt::read_from_buf(&mut data)?.with_min_check(0)?.0 as u16);
                 packet.reduced_debug_info = Some(McBool::read_from_buf(&mut data)?);
                 packet.enable_respawn_screen = Some(McBool::read_from_buf(&mut data)?);
                 packet.is_debug = Some(McBool::read_from_buf(&mut data)?);
@@ -165,7 +174,7 @@ impl ClientBoundPacket for LoginPacket {
                 // dimension_type (nbt) changes to (string); + death data (option)
                 packet.entity_id = data.try_get_i32()?;
                 packet.is_hardcore = Some(McBool::read_from_buf(&mut data)?);
-                packet.game_mode = Some(data.try_get_u8()?);
+                packet.game_mode = GameMode::try_from(data.try_get_u8()?)?;
                 try_advance(&mut data, 1)?; // previous_game_mode
                 packet.dimension_names = Some(
                     McPrefixedArrayField::<McStringField<32767>>::read_from_buf(&mut data)?,
@@ -174,9 +183,11 @@ impl ClientBoundPacket for LoginPacket {
                 _ = McStringField::<32767>::read_from_buf(&mut data); // dimension type (identifier)
                 packet.dimension_name = Some(McStringField::<32767>::read_from_buf(&mut data)?);
                 packet.hashed_seed = Some(data.try_get_i64()?);
-                packet.max_players = Some(McVarInt::read_from_buf(&mut data)?.0);
-                packet.view_distance = Some(McVarInt::read_from_buf(&mut data)?.0);
-                packet.simulation_distance = Some(McVarInt::read_from_buf(&mut data)?.0);
+                packet.max_players = McVarInt::read_from_buf(&mut data)?.0;
+                packet.view_distance =
+                    Some(McVarInt::read_from_buf(&mut data)?.with_min_check(0)?.0 as u16);
+                packet.simulation_distance =
+                    Some(McVarInt::read_from_buf(&mut data)?.with_min_check(0)?.0 as u16);
                 packet.reduced_debug_info = Some(McBool::read_from_buf(&mut data)?);
                 packet.enable_respawn_screen = Some(McBool::read_from_buf(&mut data)?);
                 packet.is_debug = Some(McBool::read_from_buf(&mut data)?);
@@ -193,7 +204,7 @@ impl ClientBoundPacket for LoginPacket {
                 // + portal_cooldown (varint)
                 packet.entity_id = data.try_get_i32()?;
                 packet.is_hardcore = Some(McBool::read_from_buf(&mut data)?);
-                packet.game_mode = Some(data.try_get_u8()?);
+                packet.game_mode = GameMode::try_from(data.try_get_u8()?)?;
                 try_advance(&mut data, 1)?; // previous_game_mode
                 packet.dimension_names = Some(
                     McPrefixedArrayField::<McStringField<32767>>::read_from_buf(&mut data)?,
@@ -202,9 +213,11 @@ impl ClientBoundPacket for LoginPacket {
                 _ = McStringField::<32767>::read_from_buf(&mut data); // dimension type (identifier)
                 packet.dimension_name = Some(McStringField::<32767>::read_from_buf(&mut data)?);
                 packet.hashed_seed = Some(data.try_get_i64()?);
-                packet.max_players = Some(McVarInt::read_from_buf(&mut data)?.0);
-                packet.view_distance = Some(McVarInt::read_from_buf(&mut data)?.0);
-                packet.simulation_distance = Some(McVarInt::read_from_buf(&mut data)?.0);
+                packet.max_players = McVarInt::read_from_buf(&mut data)?.0;
+                packet.view_distance =
+                    Some(McVarInt::read_from_buf(&mut data)?.with_min_check(0)?.0 as u16);
+                packet.simulation_distance =
+                    Some(McVarInt::read_from_buf(&mut data)?.with_min_check(0)?.0 as u16);
                 packet.reduced_debug_info = Some(McBool::read_from_buf(&mut data)?);
                 packet.enable_respawn_screen = Some(McBool::read_from_buf(&mut data)?);
                 packet.is_debug = Some(McBool::read_from_buf(&mut data)?);
@@ -224,16 +237,18 @@ impl ClientBoundPacket for LoginPacket {
                 packet.dimension_names = Some(
                     McPrefixedArrayField::<McStringField<32767>>::read_from_buf(&mut data)?,
                 );
-                packet.max_players = Some(McVarInt::read_from_buf(&mut data)?.0);
-                packet.view_distance = Some(McVarInt::read_from_buf(&mut data)?.0);
-                packet.simulation_distance = Some(McVarInt::read_from_buf(&mut data)?.0);
+                packet.max_players = McVarInt::read_from_buf(&mut data)?.0;
+                packet.view_distance =
+                    Some(McVarInt::read_from_buf(&mut data)?.with_min_check(0)?.0 as u16);
+                packet.simulation_distance =
+                    Some(McVarInt::read_from_buf(&mut data)?.with_min_check(0)?.0 as u16);
                 packet.reduced_debug_info = Some(McBool::read_from_buf(&mut data)?);
                 packet.enable_respawn_screen = Some(McBool::read_from_buf(&mut data)?);
                 packet.do_limited_crafting = Some(McBool::read_from_buf(&mut data)?);
                 _ = McStringField::<32767>::read_from_buf(&mut data); // dimension type (identifier)
                 packet.dimension_name = Some(McStringField::<32767>::read_from_buf(&mut data)?);
                 packet.hashed_seed = Some(data.try_get_i64()?);
-                packet.game_mode = Some(data.try_get_u8()?);
+                packet.game_mode = GameMode::try_from(data.try_get_u8()?)?;
                 try_advance(&mut data, 1)?; // previous_game_mode
                 packet.is_debug = Some(McBool::read_from_buf(&mut data)?);
                 packet.is_flat = Some(McBool::read_from_buf(&mut data)?);
@@ -253,9 +268,11 @@ impl ClientBoundPacket for LoginPacket {
                 packet.dimension_names = Some(
                     McPrefixedArrayField::<McStringField<32767>>::read_from_buf(&mut data)?,
                 );
-                packet.max_players = Some(McVarInt::read_from_buf(&mut data)?.0);
-                packet.view_distance = Some(McVarInt::read_from_buf(&mut data)?.0);
-                packet.simulation_distance = Some(McVarInt::read_from_buf(&mut data)?.0);
+                packet.max_players = McVarInt::read_from_buf(&mut data)?.0;
+                packet.view_distance =
+                    Some(McVarInt::read_from_buf(&mut data)?.with_min_check(0)?.0 as u16);
+                packet.simulation_distance =
+                    Some(McVarInt::read_from_buf(&mut data)?.with_min_check(0)?.0 as u16);
                 packet.reduced_debug_info = Some(McBool::read_from_buf(&mut data)?);
                 packet.enable_respawn_screen = Some(McBool::read_from_buf(&mut data)?);
                 packet.do_limited_crafting = Some(McBool::read_from_buf(&mut data)?);
@@ -263,7 +280,7 @@ impl ClientBoundPacket for LoginPacket {
                 _ = McVarInt::read_from_buf(&mut data)?.0; // Dimension type (varint)
                 packet.dimension_name = Some(McStringField::<32767>::read_from_buf(&mut data)?);
                 packet.hashed_seed = Some(data.try_get_i64()?);
-                packet.game_mode = Some(data.try_get_i8()? as u8);
+                packet.game_mode = GameMode::try_from(data.try_get_i8()? as u8)?;
                 try_advance(&mut data, 1)?; // previous_game_mode
                 packet.is_debug = Some(data.try_get_u8()? != 0);
                 packet.is_flat = Some(data.try_get_u8()? != 0);
@@ -284,9 +301,11 @@ impl ClientBoundPacket for LoginPacket {
                 packet.dimension_names = Some(
                     McPrefixedArrayField::<McStringField<32767>>::read_from_buf(&mut data)?,
                 );
-                packet.max_players = Some(McVarInt::read_from_buf(&mut data)?.0);
-                packet.view_distance = Some(McVarInt::read_from_buf(&mut data)?.0);
-                packet.simulation_distance = Some(McVarInt::read_from_buf(&mut data)?.0);
+                packet.max_players = McVarInt::read_from_buf(&mut data)?.0;
+                packet.view_distance =
+                    Some(McVarInt::read_from_buf(&mut data)?.with_min_check(0)?.0 as u16);
+                packet.simulation_distance =
+                    Some(McVarInt::read_from_buf(&mut data)?.with_min_check(0)?.0 as u16);
                 packet.reduced_debug_info = Some(McBool::read_from_buf(&mut data)?);
                 packet.enable_respawn_screen = Some(McBool::read_from_buf(&mut data)?);
                 packet.do_limited_crafting = Some(McBool::read_from_buf(&mut data)?);
@@ -294,7 +313,7 @@ impl ClientBoundPacket for LoginPacket {
                 _ = McVarInt::read_from_buf(&mut data)?.0; // Dimension type (varint)
                 packet.dimension_name = Some(McStringField::<32767>::read_from_buf(&mut data)?);
                 packet.hashed_seed = Some(data.try_get_i64()?);
-                packet.game_mode = Some(data.try_get_i8()? as u8);
+                packet.game_mode = GameMode::try_from(data.try_get_i8()? as u8)?;
                 try_advance(&mut data, 1)?; // previous_game_mode
                 packet.is_debug = Some(data.try_get_u8()? != 0);
                 packet.is_flat = Some(data.try_get_u8()? != 0);

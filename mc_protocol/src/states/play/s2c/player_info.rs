@@ -1,13 +1,15 @@
 use super::types::{ChatSession, McChatComponent, PlayerActions, PlayerCrypto, PlayerInfo};
 use super::{ClientBoundPacket, ParsePacketError};
-use crate::types::{GameProfile, McBool, McReadBuf, McStringField, McTextComponent, McVarInt};
+use crate::types::{
+    GameMode, GameProfile, McBool, McReadBuf, McStringField, McTextComponent, McVarInt,
+};
 use bytes::{Buf, Bytes};
 use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct PlayerInfoUpdatePacket {
     pub actions: PlayerActions,
-    pub players: Vec<PlayerInfo>,
+    pub players_info: Vec<PlayerInfo>,
 }
 
 impl ClientBoundPacket for PlayerInfoUpdatePacket {
@@ -16,7 +18,8 @@ impl ClientBoundPacket for PlayerInfoUpdatePacket {
     fn parse(mut data: Bytes, protocol: i32) -> Result<Self, ParsePacketError> {
         match protocol {
             ..=46 => {
-                let name = McStringField::<16>::read_from_buf(&mut data)?;
+                // increase the number of max length (in vanilla max 16) for parsing some modded server
+                let name = McStringField::<64>::read_from_buf(&mut data)?;
                 let online = McBool::read_from_buf(&mut data)?;
                 let ping = data.try_get_i16()?;
 
@@ -40,7 +43,7 @@ impl ClientBoundPacket for PlayerInfoUpdatePacket {
 
                 Ok(Self {
                     actions,
-                    players: vec![player],
+                    players_info: vec![player],
                 })
             }
 
@@ -81,7 +84,7 @@ impl ClientBoundPacket for PlayerInfoUpdatePacket {
                     match action_raw {
                         0 => {
                             player.profile = Some(GameProfile::read_from_buf(&mut data)?);
-                            player.game_mode = Some(McVarInt::read_from_buf(&mut data)?.0);
+                            player.game_mode = Some(GameMode::read_from_buf(&mut data)?);
                             player.ping = Some(McVarInt::read_from_buf(&mut data)?.0);
                             if McBool::read_from_buf(&mut data)? {
                                 player.display_name = Some(McChatComponent::String(
@@ -89,7 +92,7 @@ impl ClientBoundPacket for PlayerInfoUpdatePacket {
                                 ));
                             }
                         }
-                        1 => player.game_mode = Some(McVarInt::read_from_buf(&mut data)?.0),
+                        1 => player.game_mode = Some(GameMode::read_from_buf(&mut data)?),
                         2 => player.ping = Some(McVarInt::read_from_buf(&mut data)?.0),
                         3 => {
                             if McBool::read_from_buf(&mut data)? {
@@ -103,7 +106,10 @@ impl ClientBoundPacket for PlayerInfoUpdatePacket {
                     }
                     players.push(player);
                 }
-                Ok(Self { actions, players })
+                Ok(Self {
+                    actions,
+                    players_info: players,
+                })
             }
 
             759..=760 => {
@@ -143,7 +149,7 @@ impl ClientBoundPacket for PlayerInfoUpdatePacket {
                     match action_raw {
                         0 => {
                             player.profile = Some(GameProfile::read_from_buf(&mut data)?);
-                            player.game_mode = Some(McVarInt::read_from_buf(&mut data)?.0);
+                            player.game_mode = Some(GameMode::read_from_buf(&mut data)?);
                             player.ping = Some(McVarInt::read_from_buf(&mut data)?.0);
                             if McBool::read_from_buf(&mut data)? {
                                 player.display_name = Some(McChatComponent::String(
@@ -154,7 +160,7 @@ impl ClientBoundPacket for PlayerInfoUpdatePacket {
                                 player.crypto = Some(PlayerCrypto::read_from_buf(&mut data)?);
                             }
                         }
-                        1 => player.game_mode = Some(McVarInt::read_from_buf(&mut data)?.0),
+                        1 => player.game_mode = Some(GameMode::read_from_buf(&mut data)?),
                         2 => player.ping = Some(McVarInt::read_from_buf(&mut data)?.0),
                         3 => {
                             if McBool::read_from_buf(&mut data)? {
@@ -168,7 +174,10 @@ impl ClientBoundPacket for PlayerInfoUpdatePacket {
                     }
                     players.push(player);
                 }
-                Ok(Self { actions, players })
+                Ok(Self {
+                    actions,
+                    players_info: players,
+                })
             }
 
             761..=764 => {
@@ -203,7 +212,7 @@ impl ClientBoundPacket for PlayerInfoUpdatePacket {
                         }
                     }
                     if actions.update_game_mode {
-                        player.game_mode = Some(McVarInt::read_from_buf(&mut data)?.0);
+                        player.game_mode = Some(GameMode::read_from_buf(&mut data)?);
                     }
                     if actions.update_listed {
                         player.listed = Some(McBool::read_from_buf(&mut data)?);
@@ -221,7 +230,10 @@ impl ClientBoundPacket for PlayerInfoUpdatePacket {
                     }
                     players.push(player);
                 }
-                Ok(Self { actions, players })
+                Ok(Self {
+                    actions,
+                    players_info: players,
+                })
             }
 
             765..=767 => {
@@ -256,7 +268,7 @@ impl ClientBoundPacket for PlayerInfoUpdatePacket {
                         }
                     }
                     if actions.update_game_mode {
-                        player.game_mode = Some(McVarInt::read_from_buf(&mut data)?.0);
+                        player.game_mode = Some(GameMode::read_from_buf(&mut data)?);
                     }
                     if actions.update_listed {
                         player.listed = Some(McBool::read_from_buf(&mut data)?);
@@ -273,7 +285,10 @@ impl ClientBoundPacket for PlayerInfoUpdatePacket {
                     }
                     players.push(player);
                 }
-                Ok(Self { actions, players })
+                Ok(Self {
+                    actions,
+                    players_info: players,
+                })
             }
 
             768 => {
@@ -308,7 +323,7 @@ impl ClientBoundPacket for PlayerInfoUpdatePacket {
                         }
                     }
                     if actions.update_game_mode {
-                        player.game_mode = Some(McVarInt::read_from_buf(&mut data)?.0);
+                        player.game_mode = Some(GameMode::read_from_buf(&mut data)?);
                     }
                     if actions.update_listed {
                         player.listed = Some(McBool::read_from_buf(&mut data)?);
@@ -329,7 +344,10 @@ impl ClientBoundPacket for PlayerInfoUpdatePacket {
 
                     players.push(player);
                 }
-                Ok(Self { actions, players })
+                Ok(Self {
+                    actions,
+                    players_info: players,
+                })
             }
 
             769.. => {
@@ -365,7 +383,7 @@ impl ClientBoundPacket for PlayerInfoUpdatePacket {
                         }
                     }
                     if actions.update_game_mode {
-                        player.game_mode = Some(McVarInt::read_from_buf(&mut data)?.0);
+                        player.game_mode = Some(GameMode::read_from_buf(&mut data)?);
                     }
                     if actions.update_listed {
                         player.listed = Some(McBool::read_from_buf(&mut data)?);
@@ -389,7 +407,10 @@ impl ClientBoundPacket for PlayerInfoUpdatePacket {
 
                     players.push(player);
                 }
-                Ok(Self { actions, players })
+                Ok(Self {
+                    actions,
+                    players_info: players,
+                })
             }
         }
     }

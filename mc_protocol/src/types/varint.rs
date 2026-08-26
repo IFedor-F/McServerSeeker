@@ -51,6 +51,9 @@ impl McVarInt {
         let mut read = [0u8; 1];
 
         loop {
+            if num_read == 5 {
+                return Err(McVarIntError::TooLong);
+            }
             reader.read_exact(&mut read)?;
 
             let value = (read[0] & 0b0111_1111) as u32;
@@ -76,6 +79,9 @@ impl McVarInt {
         let mut read = [0u8; 1];
 
         loop {
+            if num_read == 5 {
+                return Err(McVarIntError::TooLong);
+            }
             stream.read_exact(&mut read).await?;
             let value = (read[0] & 0b0111_1111) as u32;
             result |= value << (7 * num_read);
@@ -173,22 +179,27 @@ impl McReadBuf for McVarInt {
         let mut result = 0u32;
 
         loop {
+            // Prevent reading more than 5 bytes to avoid shift overflow (7 * 5 = 35 >= 32)
+            if num_read == 5 {
+                return Err(McVarIntError::TooLong);
+            }
+
+            // Ensure we have data before attempting to read
             if !buf.has_remaining() {
                 return Err(McVarIntError::UnexpectedEof);
             }
+
             let read = buf.try_get_u8()?;
             let value = (read & 0b0111_1111) as u32;
-            result |= value << (7 * num_read);
 
+            result |= value << (7 * num_read);
             num_read += 1;
-            if num_read > 5 {
-                return Err(McVarIntError::TooLong);
-            }
 
             if (read & 0b1000_0000) == 0 {
                 break;
             }
         }
+
         Ok(Self(result as i32))
     }
 }

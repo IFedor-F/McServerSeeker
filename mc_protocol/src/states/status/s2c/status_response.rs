@@ -2,42 +2,42 @@ use super::{ClientBoundPacket, ParsePacketError};
 use crate::types::{McJsonTextComponent, McReadBuf, McStringField, McVarInt, Player};
 use bytes::{Buf, Bytes};
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct VersionInfo {
     pub name: String,
     pub protocol: i32,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct PlayersInfo {
     pub max: i32,
     pub online: i32,
-    pub sample: Option<Vec<Player>>,
+    pub sample: Option<HashSet<Player>>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Eq, PartialEq)]
 pub(crate) struct PlayerSample {
     pub(crate) name: String,
     pub(crate) id: String,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct ForgeChannel {
     pub res: String,
     pub version: String,
     pub required: bool,
 }
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct ForgeMod {
     #[serde(alias = "modId", alias = "modid")]
     pub mod_id: String,
     #[serde(alias = "modmarker", alias = "version")]
-    pub mod_marker: String,
+    pub version: String,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct ForgeData {
     pub channels: Option<Vec<ForgeChannel>>,
 
@@ -51,7 +51,7 @@ pub struct ForgeData {
     compressed_data: Option<String>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct StatusResponsePacket {
     pub version: VersionInfo,
     pub players: PlayersInfo,
@@ -60,7 +60,7 @@ pub struct StatusResponsePacket {
     #[serde(rename = "enforcesSecureChat")]
     pub enforces_secure_chat: Option<bool>,
 
-    #[serde(rename = "forgeData")]
+    #[serde(alias = "forgeData", alias = "modinfo")]
     pub forge_data: Option<ForgeData>,
 
     #[serde(rename = "preventsChatReports")]
@@ -118,7 +118,7 @@ fn parse_forge_data(forge_data: &mut ForgeData) -> Result<(), ParsePacketError> 
             let mod_version = McStringField::<32767>::read_from_buf(&mut buf)?;
             forge_data.mods.push(ForgeMod {
                 mod_id: namespace_name.clone(),
-                mod_marker: mod_version,
+                version: mod_version,
             });
         }
 

@@ -1,4 +1,4 @@
-use crate::connection::s2c::ClientBoundState;
+use crate::connection::s2c::{ClientBoundPacket, ClientBoundState};
 use crate::types::{McReadBuf, McVarInt, McVarIntError};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use c2s::ServerBoundState;
@@ -7,48 +7,13 @@ use flate2::read::ZlibDecoder;
 use flate2::write::ZlibEncoder;
 use s2c::PacketError;
 use std::io::{Read, Write};
+use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
+use tokio::net::{TcpStream, ToSocketAddrs};
+use tokio::time::timeout;
 
 pub mod c2s;
 pub mod s2c;
-
-#[derive(thiserror::Error, Debug)]
-pub enum McConnectionError {
-    #[error("Connection error: too Big Packet ({0} bytes)")]
-    TooBigPacket(usize),
-
-    #[error("Connection error: I/O error: {0}")]
-    Io(#[from] std::io::Error),
-
-    #[error("Connection error: invalid McVarInt: {0}")]
-    InvalidVarint(McVarIntError),
-
-    #[error("Connection error: unexpectedEof")]
-    UnexpectedEof,
-
-    #[error("Connection error: parse packet error: {0}")]
-    ParsePacket(#[from] PacketError),
-
-    #[error("Connection error: invalid length")]
-    InvalidLength,
-
-    #[error("Connection error: zlib decompress error")]
-    DecompressionError(#[from] flate2::DecompressError),
-
-    #[error(
-        "Connection error: decompressed size mismatch (declared: {declared}, actual: {actual})"
-    )]
-    DecompressedSizeMismatch { declared: usize, actual: usize },
-}
-impl From<McVarIntError> for McConnectionError {
-    fn from(err: McVarIntError) -> Self {
-        match err {
-            McVarIntError::Io(err) => Self::Io(err),
-            err => McConnectionError::InvalidVarint(err),
-        }
-    }
-}
 
 #[derive(Debug)]
 pub struct McPacket {
@@ -61,10 +26,51 @@ pub enum FilteredMcPacket {
     Matched(McPacket),
     Unmatched(i32),
 }
+#[derive(thiserror::Error, Debug)]
+pub enum McConnectionError {
+    #[error("too big packet ({0} bytes)")]
+    TooBigPacket(usize),
+
+    #[error("I/O error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("timeout")]
+    Timeout,
+
+    #[error("invalid McVarInt: {0}")]
+    InvalidVarint(McVarIntError),
+
+    #[error("unexpectedEOF")]
+    UnexpectedEof,
+
+    #[error("parse packet error: {0}")]
+    ParsePacket(#[from] PacketError),
+
+    #[error("invalid length")]
+    InvalidLength,
+
+    #[error("zlib decompress error")]
+    DecompressionError(#[from] flate2::DecompressError),
+
+    #[error("decompressed size mismatch (declared: {declared}, actual: {actual})")]
+    DecompressedSizeMismatch { declared: usize, actual: usize },
+
+    #[error("unexpected packet")]
+    UnexpectedPacket,
+}
+impl From<McVarIntError> for McConnectionError {
+    fn from(err: McVarIntError) -> Self {
+        match err {
+            McVarIntError::Io(err) => Self::Io(err),
+            err => McConnectionError::InvalidVarint(err),
+        }
+    }
+}
 
 pub struct McConnection {
     pub stream: TcpStream,
     pub protocol: i32,
+    pub read_packet_timeout: Duration,
 
     read_buf: BytesMut,
     write_buf: BytesMut,
@@ -74,22 +80,33 @@ pub struct McConnection {
 }
 
 impl McConnection {
-    // Max size of raw packet is 2 MiB;
+    // Max size of raw packet is 2 MiB
     const MAX_PACKET_SIZE: i32 = 2097151; // 2 MiB
 
     // Minecraft doesn't have a client-side data limit, but the server can potentially send compression bomb
     const MAX_UNCOMPRESSED_PACKET_SIZE: i32 = 4194304; // 4 MiB
-    pub fn new(stream: TcpStream, protocol: i32) -> Self {
-        Self {
+
+    pub async fn new<A: ToSocketAddrs>(
+        addr: A,
+        protocol: i32,
+        read_packet_timeout: Duration,
+    ) -> Result<Self, McConnectionError> {
+        let stream = match timeout(read_packet_timeout, TcpStream::connect(addr)).await {
+            Ok(result) => result?,
+            Err(_) => return Err(McConnectionError::Timeout),
+        };
+        Ok(Self {
             stream,
             protocol,
+            read_packet_timeout,
             read_buf: BytesMut::with_capacity(32 * 1024), // 32 KiB
             write_buf: BytesMut::with_capacity(1024),     // 1 KiB
             scratch_buf: BytesMut::with_capacity(1024),   // 1 KiB
-            compress_buf: BytesMut::with_capacity(0),
+            compress_buf: BytesMut::new(),
             compression_threshold: None,
-        }
+        })
     }
+
     pub fn enable_compress(&mut self, threshold: usize) {
         if self.compression_threshold.is_none() {
             self.compress_buf.reserve(32 * 1024); // 32 KiB
@@ -153,7 +170,7 @@ impl McConnection {
         Ok(())
     }
 
-    pub async fn read_packet<P: ClientBoundState>(&mut self) -> Result<P, McConnectionError> {
+    async fn read_raw_packet(&mut self) -> Result<McPacket, McConnectionError> {
         let length = self
             .read_varint()
             .await?
@@ -181,7 +198,7 @@ impl McConnection {
                         id,
                         payload: packet_data,
                     };
-                    Ok(P::parse_packet(packet, self.protocol)?)
+                    Ok(packet)
                 }
                 // 1.2 Compression enabled and data is compressed (probable payload len is more than threshold)
                 else {
@@ -205,7 +222,7 @@ impl McConnection {
                         id,
                         payload: decompressed_bytes,
                     };
-                    Ok(P::parse_packet(packet, self.protocol)?)
+                    Ok(packet)
                 }
             }
             // 2. Compression is disabled
@@ -216,11 +233,11 @@ impl McConnection {
                     id,
                     payload: packet_data,
                 };
-                Ok(P::parse_packet(packet, self.protocol)?)
+                Ok(packet)
             }
         }
     }
-    pub async fn read_filtered_raw<F>(
+    async fn read_filtered_raw_packet<F>(
         &mut self,
         filter: F,
     ) -> Result<FilteredMcPacket, McConnectionError>
@@ -309,19 +326,64 @@ impl McConnection {
         }
     }
 
-    pub async fn read_filtered_packet<F, P>(&mut self, filter: F) -> Result<P, McConnectionError>
+    pub async fn read_packet<S: ClientBoundState>(&mut self) -> Result<S, McConnectionError> {
+        let raw_packet = match timeout(self.read_packet_timeout, self.read_raw_packet()).await {
+            Ok(Ok(p)) => p,
+            Ok(Err(e)) => return Err(e),
+            Err(_) => return Err(McConnectionError::Timeout),
+        };
+        let packet = S::parse_packet(raw_packet, self.protocol)?;
+        Ok(packet)
+    }
+
+    pub async fn skip_until_filter<F, P>(&mut self, filter: F) -> Result<P, McConnectionError>
     where
         F: (Fn(i32) -> bool),
         P: ClientBoundState,
     {
         loop {
-            let packet = self.read_filtered_raw(&filter).await?;
+            let packet = match timeout(
+                self.read_packet_timeout,
+                self.read_filtered_raw_packet(&filter),
+            )
+            .await
+            {
+                Ok(Ok(p)) => p,
+                Ok(Err(e)) => return Err(e),
+                Err(_) => return Err(McConnectionError::Timeout),
+            };
+
             match packet {
                 FilteredMcPacket::Matched(p) => {
                     return Ok(P::parse_packet(p, self.protocol)?);
                 }
                 FilteredMcPacket::Unmatched(_) => {}
             };
+        }
+    }
+
+    pub async fn read_expected_packet<S, P>(&mut self) -> Result<P, McConnectionError>
+    where
+        S: ClientBoundState,
+        P: ClientBoundPacket + 'static,
+    {
+        let raw_packet = match timeout(self.read_packet_timeout, self.read_raw_packet()).await {
+            Ok(Ok(p)) => p,
+            Ok(Err(e)) => return Err(e),
+            Err(_) => return Err(McConnectionError::Timeout),
+        };
+        let is_expected = S::is_packet::<P>(raw_packet.id, self.protocol);
+        if is_expected {
+            let packet = P::parse(raw_packet.payload, self.protocol).map_err(|err| {
+                PacketError::PacketDecoding {
+                    state: S::STATE_NAME,
+                    packet_name: P::MC_NAME,
+                    source: err,
+                }
+            })?;
+            Ok(packet)
+        } else {
+            Err(McConnectionError::UnexpectedPacket)
         }
     }
     async fn read_exact_bytes(&mut self, len: usize) -> Result<Bytes, McConnectionError> {

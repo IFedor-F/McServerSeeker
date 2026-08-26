@@ -18,6 +18,9 @@ pub enum McStringFieldError {
 
     #[error("UTF-8 parsing error while reading McString: {0}")]
     InvalidUtf8(#[from] std::string::FromUtf8Error),
+
+    #[error("Null byte in string isn't allowed")]
+    NullByte,
 }
 impl From<McVarIntError> for McStringFieldError {
     fn from(err: McVarIntError) -> Self {
@@ -46,6 +49,9 @@ impl<const MAX_SIZE: usize> McReadBuf for McStringField<MAX_SIZE> {
 
         let string_bytes = buf.split_to(length);
         let s = String::from_utf8(string_bytes.to_vec())?;
+        if s.contains("\0") {
+            return Err(McStringFieldError::NullByte);
+        }
         Ok(s)
     }
 }

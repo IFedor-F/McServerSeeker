@@ -152,6 +152,7 @@ impl McReadBuf for KnownPack {
 #[derive(Debug)]
 pub enum CustomPayloadData {
     MinecraftBrand(String),
+    MinecraftRegister { channels: Vec<String> },
     Unrecognized(Bytes),
 }
 impl CustomPayloadData {
@@ -160,6 +161,16 @@ impl CustomPayloadData {
             "minecraft:brand" | "MC|Brand" => {
                 let brand = McStringField::<32768>::read_from_buf(&mut data)?;
                 Ok(Self::MinecraftBrand(brand))
+            }
+            "minecraft:register" => {
+                // minecraft:register is utf-8 strings without length prefix and separated by \u0000
+                let channels: Vec<String> = data
+                    .split(|&b| b == b'\0')
+                    .filter_map(|slice| str::from_utf8(slice).ok())
+                    .filter(|s| !s.is_empty())
+                    .map(|s| s.to_string())
+                    .collect();
+                Ok(Self::MinecraftRegister { channels })
             }
             _ => Ok(Self::Unrecognized(data)),
         }

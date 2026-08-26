@@ -1,43 +1,15 @@
 use crate::connection::s2c::{ParsePacketError, try_split_to};
 pub use crate::states::configuration::types::ResourcePackIdent;
-use crate::types::{GameProfile, McReadBuf, McTextComponent, McVarInt};
+use crate::types::{GameMode, GameProfile, McReadBuf, McTextComponent, McVarInt};
 use bytes::{Buf, Bytes};
 use uuid::Uuid;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct DeathLocation {
     pub dimension_name: String,
     pub location: i64,
 }
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Difficulty {
-    Peaceful = 0,
-    Easy = 1,
-    Normal = 2,
-    Hard = 3,
-}
-impl From<i32> for Difficulty {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => Self::Peaceful,
-            1 => Self::Easy,
-            2 => Self::Normal,
-            3 => Self::Hard,
-            n => panic!("Difficulty expected 0, 1, 2 or 3, but get {}", n),
-        }
-    }
-}
-impl From<u8> for Difficulty {
-    fn from(value: u8) -> Self {
-        match value {
-            0 => Self::Peaceful,
-            1 => Self::Easy,
-            2 => Self::Normal,
-            3 => Self::Hard,
-            n => panic!("Difficulty expected 0, 1, 2 or 3, but get {}", n),
-        }
-    }
-}
+
 #[derive(Debug, Clone, Default)]
 pub struct PlayerActions {
     pub add_player: bool,
@@ -125,7 +97,7 @@ pub struct PlayerInfo {
     pub chat_session: Option<ChatSession>,
 
     // Updates
-    pub game_mode: Option<i32>,
+    pub game_mode: Option<GameMode>,
     pub listed: Option<bool>,
     pub ping: Option<i32>,
     pub display_name: Option<McChatComponent>,

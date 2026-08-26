@@ -40,7 +40,7 @@ impl McReadBuf for GameProfile {
     type Error = ParsePacketError;
 
     fn read_from_buf(buf: &mut Bytes) -> Result<Self::Output, Self::Error> {
-        let name = McStringField::<16>::read_from_buf(buf)?;
+        let name = McStringField::<64>::read_from_buf(buf)?; // increase the number of max length (in vanilla max 16) for parsing some modded server
         let properties = McPrefixedArrayField::<GameProfileProperty>::read_from_buf(buf)?;
         Ok(Self { name, properties })
     }

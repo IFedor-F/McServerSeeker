@@ -34,8 +34,11 @@ pub enum ParsePacketError {
     #[error("Length can't be less than 0")]
     NegativeLength,
 
-    #[error("JSON parse error")]
+    #[error("JSON parse error: {0}")]
     InvalidJson(#[from] serde_json::Error),
+
+    #[error("Enum index is out of range: {0}")]
+    InvalidEnumIndex(usize),
 
     #[error("Field is too big (max expected: {max_expected}, actual: {actual})")]
     TooLongField { max_expected: usize, actual: usize },
