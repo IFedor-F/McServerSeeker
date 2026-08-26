@@ -1,0 +1,20 @@
+[package]
+name = "mc_server_seeker_worker"
+version = "0.1.0"
+edition = "2024"
+
+
+[dependencies]
+# local
+mc_protocol = { path = "../mc_protocol" }
+data_core = { path = "../data_core" }
+
+hickory-resolver = "0.26"
+tokio = { version = "1", features = ["full"] }
+ipnetwork = "0.21.1"
+log = { version = "0.4" }
+env_logger = "0.11"
+tonic = { version = "0.14", features = ["tls-ring"] }
+tokio-stream = "0.1"
+tokio-util = "0.7.19"
+shlex = "2.0.1"
