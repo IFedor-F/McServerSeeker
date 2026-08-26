@@ -4,7 +4,7 @@ use axum::{
     Json,
     extract::{Path, State},
 };
-use data_core::manager_api::ScheduleData;
+use data_core::api::manager::ScheduleData;
 
 // Scheduling endpoints
 #[utoipa::path(

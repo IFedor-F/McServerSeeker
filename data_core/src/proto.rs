@@ -1,5 +1,5 @@
 pub mod scanner {
-    use crate::manager_api;
+    use crate::api;
     use std::net::{Ipv4Addr, Ipv6Addr};
     use tonic::Status;
 
@@ -172,8 +172,8 @@ pub mod scanner {
             }
         }
     }
-    impl From<manager_api::PortRange> for PortRange {
-        fn from(value: manager_api::PortRange) -> Self {
+    impl From<api::manager::PortRange> for PortRange {
+        fn from(value: api::manager::PortRange) -> Self {
             Self {
                 min: value.min as u32,
                 max: value.max as u32,
@@ -181,7 +181,7 @@ pub mod scanner {
         }
     }
 
-    impl From<PortRange> for manager_api::PortRange {
+    impl From<PortRange> for api::manager::PortRange {
         fn from(value: PortRange) -> Self {
             Self {
                 min: value.min as u16,
@@ -189,8 +189,8 @@ pub mod scanner {
             }
         }
     }
-    impl From<manager_api::DiscoverRequest> for DiscoverRequest {
-        fn from(value: manager_api::DiscoverRequest) -> Self {
+    impl From<api::manager::DiscoverRequest> for DiscoverRequest {
+        fn from(value: api::manager::DiscoverRequest) -> Self {
             Self {
                 targets: value.targets.into_iter().map(IpPrefix::from).collect(),
                 excludes: value.excludes.into_iter().map(IpPrefix::from).collect(),
@@ -202,8 +202,8 @@ pub mod scanner {
         }
     }
 
-    impl From<manager_api::RescanTarget> for RescanTarget {
-        fn from(value: manager_api::RescanTarget) -> Self {
+    impl From<api::manager::RescanTarget> for RescanTarget {
+        fn from(value: api::manager::RescanTarget) -> Self {
             Self {
                 ip: Some(IpAddr::from(value.ip)),
                 port: value.port as u32,
@@ -211,8 +211,8 @@ pub mod scanner {
             }
         }
     }
-    impl From<manager_api::RescanRequest> for RescanRequest {
-        fn from(value: manager_api::RescanRequest) -> Self {
+    impl From<api::manager::RescanRequest> for RescanRequest {
+        fn from(value: api::manager::RescanRequest) -> Self {
             Self {
                 method: value.method as i32,
                 rate: value.rate,

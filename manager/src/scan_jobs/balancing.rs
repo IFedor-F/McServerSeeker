@@ -1,7 +1,7 @@
 use crate::database::ParsedForSqlServerData;
 use crate::scan_jobs::worker::WorkerError;
 use crate::scan_jobs::{ManagerTask, Worker};
-use data_core::manager_api::{
+use data_core::api::manager::{
     DiscoverJobProgress, DiscoverRequest, JobProgress, RescanJobProgress, RescanRequest,
     WorkerJobReq,
 };

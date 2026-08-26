@@ -1,3 +1,4 @@
+pub use super::server_data::*;
 use crate::proto::scanner;
 use chrono::{DateTime, Utc};
 use ipnetwork::IpNetwork;
@@ -37,6 +38,7 @@ pub struct ScheduleData {
     #[schema(inline)]
     pub job_data: ScheduleJobData,
 }
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case", tag = "type", deny_unknown_fields)]
 pub enum ScheduleJobData {
@@ -65,6 +67,19 @@ pub struct ManagerJobReq {
     pub executor: JobExecutor,
     #[schema(inline)]
     pub job_request: WorkerJobReq,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ManagerScanOneReq {
+    pub executor: JobExecutor,
+    #[schema(examples(
+        "server.example",
+        "server.example:25565",
+        "127.0.0.1",
+        "127.0.0.1:25565"
+    ))]
+    pub target: String,
+    pub scan_method: ScanMethod,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
@@ -220,7 +235,7 @@ pub struct PlayerTrackInfo {
     pub uuid: Option<Uuid>,
     #[schema(value_type = Option<String>, example = "2026-00-00T00:00:00Z")]
     pub last_send: Option<DateTime<Utc>>,
-    #[schema(value_type = String, example = "127.0.0.1/32")]
+    #[schema(value_type = String, example = "127.0.0.1")]
     pub last_server_ip: Option<IpAddr>,
     #[schema(example = "25565")]
     pub last_server_port: Option<u16>,

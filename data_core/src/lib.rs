@@ -1,3 +1,3 @@
-pub mod manager_api;
+pub mod api;
 pub mod proto;
 pub mod sql;

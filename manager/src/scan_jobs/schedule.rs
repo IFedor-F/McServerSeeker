@@ -2,7 +2,7 @@ use crate::scan_jobs::WorkerManagerService;
 use crate::scan_jobs::worker_manager::WorkerManagerError;
 use axum::Json;
 use chrono::Utc;
-use data_core::manager_api::{
+use data_core::api::manager::{
     ManagerJobReq, RescanRequest, RescanTarget, Schedule, ScheduleData, ScheduleJobData,
     WorkerJobReq,
 };

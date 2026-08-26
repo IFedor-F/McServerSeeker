@@ -5,7 +5,7 @@ use super::tracking;
 use crate::player_tracking::tracking_service::PlayerTrackingServiceError;
 use crate::scan_jobs::schedule::ScheduleManagerError;
 use crate::scan_jobs::worker_manager::WorkerManagerError;
-use data_core::manager_api::{
+use data_core::api::manager::{
     JobId, JobProgress, ManagerJobInfo, ManagerJobReq, PlayerTrackInfo, ScheduleData, WebhookInfo,
     WorkerStatus,
 };

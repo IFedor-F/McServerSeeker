@@ -5,7 +5,7 @@ use axum::{
     Json,
     extract::{Path, State},
 };
-use data_core::manager_api::{JobId, JobProgress, ManagerJobInfo, ManagerJobReq, WorkerStatus};
+use data_core::api::manager::{JobId, JobProgress, ManagerJobInfo, ManagerJobReq, WorkerStatus};
 
 // Manager endpoints
 #[utoipa::path(

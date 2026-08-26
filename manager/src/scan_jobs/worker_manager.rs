@@ -4,7 +4,7 @@ use crate::scan_jobs::balancing::Balancer;
 use crate::scan_jobs::worker::WorkerError;
 use axum::Json;
 use axum::http::StatusCode;
-use data_core::manager_api::{
+use data_core::api::manager::{
     JobExecutor, JobId, JobProgress, ManagerJobInfo, ManagerJobReq, WorkerStatus,
 };
 use futures::FutureExt;

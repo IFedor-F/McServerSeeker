@@ -5,7 +5,7 @@ pub mod worker_manager;
 
 pub use worker::Worker;
 
-use data_core::manager_api::{JobProgress, ManagerJobReq};
+use data_core::api::manager::{JobProgress, ManagerJobReq};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;

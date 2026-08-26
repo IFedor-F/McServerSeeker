@@ -1,4 +1,4 @@
-use data_core::manager_api::{ScheduleData, WorkerInfo};
+use data_core::api::manager::{ScheduleData, WorkerInfo};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]

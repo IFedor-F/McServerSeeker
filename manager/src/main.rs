@@ -10,7 +10,7 @@ use crate::database::DbQueueWorker;
 use crate::player_tracking::PlayerTrackingService;
 use crate::scan_jobs::schedule::ScheduleService;
 use crate::scan_jobs::{Worker, WorkerManagerService};
-use data_core::manager_api::ScheduleData;
+use data_core::api::manager::ScheduleData;
 use sqlx::PgPool;
 use std::sync::Arc;
 use std::time::Duration;
