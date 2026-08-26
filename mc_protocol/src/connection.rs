@@ -272,7 +272,6 @@ impl McConnection {
                     match filter(id_varint.0) {
                         true => {
                             let payload = self.read_exact_bytes(payload_len).await?;
-
                             Ok(FilteredMcPacket::Matched(McPacket {
                                 id: id_varint.0,
                                 payload,
@@ -311,12 +310,14 @@ impl McConnection {
                 let payload_len = length
                     .checked_sub(id_varint.len())
                     .ok_or(McConnectionError::InvalidLength)?;
-                let payload = self.read_exact_bytes(payload_len).await?;
                 match filter(id_varint.0) {
-                    true => Ok(FilteredMcPacket::Matched(McPacket {
-                        id: id_varint.0,
-                        payload,
-                    })),
+                    true => {
+                        let payload = self.read_exact_bytes(payload_len).await?;
+                        Ok(FilteredMcPacket::Matched(McPacket {
+                            id: id_varint.0,
+                            payload,
+                        }))
+                    }
                     false => {
                         self.skip_bytes(payload_len).await?;
                         Ok(FilteredMcPacket::Unmatched(id_varint.0))
