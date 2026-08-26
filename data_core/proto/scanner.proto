@@ -1,0 +1,200 @@
+syntax = "proto3";
+package scanner;
+
+import "google/protobuf/empty.proto";
+
+// types
+enum IpVersion {
+  V4 = 0;
+  V6 = 1;
+}
+message IpAddr {
+  IpVersion ip_version = 1;
+  bytes address = 2;
+}
+message IpPrefix {
+  IpAddr ip_addr = 1;
+  uint32 prefix_length = 2;
+}
+
+enum WorkerJobType {
+  UNKNOWN_JOB_TYPE = 0;
+  DISCOVER = 1;
+  RESCANNING = 2;
+}
+
+message WorkerJob {
+  uint32 id = 1;
+  WorkerJobType job_type = 2;
+}
+
+message PortRange {
+  uint32 min = 1;
+  uint32 max = 2;
+}
+
+enum ScanMethod {
+  ONLY_HANDSHAKE = 0;
+  LOGIN_IF_NO_MSG = 1;
+  JOIN_IF_EMPTY = 2 ;
+  JOIN = 3;
+}
+
+// minecraft server data
+enum ConnectionResult {
+  UNKNOWN_CONNECTION_RESULT = 0;
+  LOGIN_DISCONNECT = 1;
+  CONFIGURATION_DISCONNECT = 2;
+  PLAY_DISCONNECT = 3;
+  SUCCESSFUL = 4;
+}
+
+enum GameMode {
+  UNKNOWN_GAME_MODE = 0;
+  SURVIVAL = 1;
+  CREATIVE = 2;
+  ADVENTURE = 3;
+  SPECTATOR = 4;
+}
+
+enum Difficulty {
+  UNKNOWN_DIFFICULTY = 0;
+  PEACEFUL = 1;
+  EASY = 2;
+  NORMAL = 3;
+  HARD = 4;
+}
+
+message PlayerRecord {
+  string name = 1;
+  bytes uuid = 2;
+  bool is_online = 3;
+  optional GameMode gamemode = 4;
+  optional int32 ping = 5;
+}
+
+message McMod {
+  string mod_id = 1;
+  string version = 2;
+}
+
+message ResourcePack {
+  string url = 1;
+  string hash = 2;
+  bool forced = 3;
+}
+
+message McServerData {
+  // handshake data
+  IpAddr ip = 1;
+  uint32 port = 2;
+  optional string domain = 3;
+  ConnectionResult connection_result = 4;
+  string description = 5;
+  int32 protocol = 6;
+  string version_name = 7;
+  int32 online_players = 8;
+  int32 max_players = 9;
+  repeated PlayerRecord players = 10;
+  bool enforces_secure_chat = 11;
+  bool no_chat_reports = 12;
+  repeated McMod mods = 13;
+
+  // configuration data
+  repeated string channels = 14;
+  optional string brand = 15;
+  repeated string links = 16;
+  optional string code_of_conduct = 17;
+  repeated string features = 18;
+  ResourcePack resource_pack = 19;
+
+  // play data
+  optional int64 hashed_seed = 20;
+  optional GameMode gamemode = 21;
+  optional Difficulty difficulty = 22;
+  optional string Dimension = 23;
+  optional uint32 view_distance = 24;
+  optional uint32 simulation_distance = 25;
+  optional bool is_hardcore = 26;
+  optional bool reduced_debug_info = 27;
+  optional bool do_limited_crafting = 28;
+  optional bool is_flat = 29;
+  repeated string commands = 30;
+
+  // other
+  optional bool is_whitelist = 31;
+  optional bool is_online_mode = 32;
+  optional bool offline_auth = 33;
+  optional string player_name = 34;
+}
+
+message RescanTarget {
+  IpAddr ip = 1;
+  uint32 port = 2;
+  optional string player_name = 3;
+}
+
+// requests
+message DiscoverRequest {
+  repeated IpPrefix targets = 1;
+  repeated IpPrefix excludes = 2;
+  repeated uint32 ports = 3;
+  repeated PortRange port_ranges = 4;
+  uint32 rate = 5;
+  ScanMethod method = 6;
+}
+
+message ScanOneRequest {
+  string target = 1;
+  optional uint32 port = 2;
+  ScanMethod scan_method = 3;
+}
+
+message RescanRequest {
+  ScanMethod method = 1;
+  uint32 rate = 2;
+  repeated RescanTarget targets = 3;
+}
+
+message JobCancel {
+  uint32 job_id = 1;
+}
+
+// updates
+message ScanStats {
+  float scanned_progress = 1;
+  uint32 founded = 2;
+  uint32 parsing_now = 3;
+  uint32 successful = 4;
+}
+
+message DiscoverUpdate {
+  uint32 job_id = 1;
+  ScanStats stats = 2;
+  optional McServerData server_data = 3;
+}
+
+message RescanUpdate{
+  uint32 job_id = 1;
+  uint32 checked = 2;
+  optional McServerData server_data = 3;
+}
+
+message ScanOneResult {
+  optional McServerData server_data = 1;
+}
+
+message WorkerStatus {
+  repeated WorkerJob works = 1;
+}
+
+
+// worker service
+service WorkerService {
+  rpc Discover(DiscoverRequest) returns (stream DiscoverUpdate);
+  rpc Rescan(RescanRequest) returns (stream RescanUpdate);
+  rpc ScanOne(ScanOneRequest) returns (ScanOneResult);
+
+  rpc GetStatus(google.protobuf.Empty) returns (WorkerStatus);
+  rpc Cancel(JobCancel) returns (google.protobuf.Empty);
+}
