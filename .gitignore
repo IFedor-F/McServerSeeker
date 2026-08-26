@@ -1,4 +1,4 @@
 /target
 /.env
 /.idea
-/mc_protocol/target/
+/manager-config.toml
