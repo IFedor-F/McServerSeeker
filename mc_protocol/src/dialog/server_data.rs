@@ -58,7 +58,7 @@ pub struct ServerData {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ResourcePack {
     pub url: String,
-    pub hash: String,
+    pub hash: Option<String>,
     pub forced: bool,
 }
 

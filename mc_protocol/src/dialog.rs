@@ -10,6 +10,7 @@ pub use server_data::*;
 
 use crate::connection::s2c::ClientBoundState;
 use crate::connection::{McConnection, McConnectionError};
+use crate::states::configuration::s2c::CustomPayloadPacket;
 use crate::states::configuration::types::CustomPayloadData;
 use crate::types::*;
 use crate::{is_packet_any, states};
@@ -254,17 +255,9 @@ impl ServerDialog {
                     conn.send_packet(C2SConfigurationState::CookieResponse(ans))
                         .await?;
                 }
-                S2CConfigurationState::CustomPayload(p) => match p.data {
-                    CustomPayloadData::MinecraftBrand(brand) => {
-                        server_data.brand = Some(brand);
-                    }
-                    CustomPayloadData::MinecraftRegister { channels } => {
-                        server_data.registered_channels.extend(channels);
-                    }
-                    CustomPayloadData::Unrecognized(_) => {
-                        server_data.channels.insert(p.channel);
-                    }
-                },
+                S2CConfigurationState::CustomPayload(p) => {
+                    info_from_custom_payload(p, server_data);
+                }
                 S2CConfigurationState::Disconnect(p) => {
                     return Ok(ConfigurationResult::DisconnectByServer {
                         msg: p.reason.formatted(),
@@ -284,7 +277,7 @@ impl ServerDialog {
                 S2CConfigurationState::AddResourcePack(p) => {
                     server_data.resource_pack = Some(ResourcePack {
                         url: p.url.clone(),
-                        hash: p.hash.clone(),
+                        hash: Some(p.hash.clone()),
                         forced: p.forced.unwrap_or(true),
                     });
                     let ident = ResourcePackIdent::from_server_packet(p);
@@ -370,17 +363,9 @@ impl ServerDialog {
                     let ans = PongPacket { id: p.id };
                     conn.send_packet(C2SPlayState::Pong(ans)).await?;
                 }
-                S2CPlayState::CustomPayload(p) => match p.data {
-                    CustomPayloadData::MinecraftBrand(brand) => {
-                        server_data.brand = Some(brand);
-                    }
-                    CustomPayloadData::MinecraftRegister { channels } => {
-                        server_data.registered_channels.extend(channels);
-                    }
-                    CustomPayloadData::Unrecognized(_) => {
-                        server_data.channels.insert(p.channel);
-                    }
-                },
+                S2CPlayState::CustomPayload(p) => {
+                    info_from_custom_payload(p, server_data);
+                }
                 S2CPlayState::ChangeDifficulty(p) => server_data.difficulty = Some(p.difficulty),
                 S2CPlayState::Commands(p) => {
                     server_data.commands = p.command_names;
@@ -453,7 +438,7 @@ impl ServerDialog {
                 S2CPlayState::ResourcePackPush(p) => {
                     server_data.resource_pack = Some(ResourcePack {
                         url: p.url.clone(),
-                        hash: p.hash.clone(),
+                        hash: Some(p.hash.clone()),
                         forced: p.forced.unwrap_or(true),
                     });
 
@@ -730,5 +715,26 @@ impl ServerDialog {
             _ => {}
         }
         ConnectionResult::Successful { data }
+    }
+}
+
+fn info_from_custom_payload(packet: CustomPayloadPacket, server_data: &mut ServerData) {
+    match packet.data {
+        CustomPayloadData::MinecraftBrand(brand) => {
+            server_data.brand = Some(brand);
+        }
+        CustomPayloadData::MinecraftRegister { channels } => {
+            server_data.registered_channels.extend(channels);
+        }
+        CustomPayloadData::RPack { url } => {
+            server_data.resource_pack = Some(ResourcePack {
+                url,
+                hash: None,
+                forced: true,
+            })
+        }
+        CustomPayloadData::Unrecognized(_) => {
+            server_data.channels.insert(packet.channel);
+        }
     }
 }

@@ -153,13 +153,20 @@ impl McReadBuf for KnownPack {
 pub enum CustomPayloadData {
     MinecraftBrand(String),
     MinecraftRegister { channels: Vec<String> },
+    RPack { url: String },
     Unrecognized(Bytes),
 }
 impl CustomPayloadData {
-    pub fn new(channel: &str, mut data: Bytes) -> Result<Self, ParsePacketError> {
+    pub fn new(channel: &str, mut data: Bytes, protocol: i32) -> Result<Self, ParsePacketError> {
         match channel {
             "minecraft:brand" | "MC|Brand" => {
-                let brand = McStringField::<32768>::read_from_buf(&mut data)?;
+                let brand = if protocol > 5 {
+                    McStringField::<32768>::read_from_buf(&mut data)?
+                } else {
+                    // protocol <= 5 hasn't size prefix for brand
+                    String::from_utf8(data.to_vec())
+                        .map_err(|e| ParsePacketError::InvalidString(e.into()))?
+                };
                 Ok(Self::MinecraftBrand(brand))
             }
             "minecraft:register" => {
@@ -171,6 +178,11 @@ impl CustomPayloadData {
                     .map(|s| s.to_string())
                     .collect();
                 Ok(Self::MinecraftRegister { channels })
+            }
+            "MC|RPack" => {
+                let url = String::from_utf8(data.to_vec())
+                    .map_err(|e| ParsePacketError::InvalidString(e.into()))?;
+                Ok(Self::RPack { url })
             }
             _ => Ok(Self::Unrecognized(data)),
         }
