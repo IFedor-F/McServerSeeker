@@ -1,26 +1,44 @@
-mod utils;
+mod containers;
 
-use crate::utils::server_analyze;
+use containers::generate_container;
+use mc_protocol::dialog::{
+    ConnectionMethod, ConnectionResult, ConnectionSettings, DisconnectLoginReason, ServerDialog,
+    ServerDst,
+};
 use mc_protocol::types::{McVersion, McVersionEnum, Player};
 use testcontainers::ImageExt;
 use testcontainers::runners::AsyncRunner;
-use utils::containers::generate_container;
-use utils::server_analyze::ConnectionExitReason;
 
 async fn test(version: McVersion) {
+    let _ = env_logger::builder().is_test(true).try_init();
     let container = generate_container(version, "vanilla").with_env_var("ONLINE_MODE", "TRUE");
     let container = container.start().await.unwrap();
     let host_port = container.get_host_port_ipv4(25565).await.unwrap();
     let player = Player::random_like_offline();
-    let result =
-        server_analyze::parse_server_data(format!("127.0.0.1:{}", host_port), &player).await;
+    let dst = ServerDst::from_ip_and_port("127.0.0.1".parse().unwrap(), host_port);
+    let dialog = ServerDialog::new(dst, player.clone());
+    let conn_settings = ConnectionSettings {
+        conn_method: ConnectionMethod::Join,
+        ..Default::default()
+    };
+    let result = dialog.connect(conn_settings).await;
     dbg!(&result);
-    match result.exit_reason {
-        ConnectionExitReason::Encryption => {}
-        exit_reason => panic!("Expected encryption exit, but got {:?}", exit_reason),
-    }
-    let server_data = result.server_data;
-    assert_eq!(server_data.protocol, version.protocol);
+
+    let data = match result {
+        ConnectionResult::DisconnectAtLogin {
+            data,
+            reason:
+                DisconnectLoginReason::OnlineMode {
+                    should_authenticate: true,
+                },
+        } => data,
+        another => panic!(
+            "expect disconnect login with reason online mode with should authenticate = true, but got {:?}",
+            another
+        ),
+    };
+
+    assert_eq!(data.protocol, version.protocol);
 }
 #[tokio::test]
 async fn test_vanilla_26_2_online() {

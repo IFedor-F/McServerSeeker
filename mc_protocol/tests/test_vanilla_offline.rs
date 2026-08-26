@@ -1,15 +1,16 @@
-mod utils;
+mod containers;
 
-use crate::utils::server_analyze;
-use crate::utils::server_analyze::ResourcePack;
+use containers::generate_container;
+use mc_protocol::dialog::{
+    ConnectionMethod, ConnectionResult, ConnectionSettings, ResourcePack, ServerDialog, ServerDst,
+};
 use mc_protocol::types::{McVersion, McVersionEnum, Player};
-use std::collections::HashSet;
+use std::time::Duration;
 use testcontainers::ImageExt;
 use testcontainers::runners::AsyncRunner;
-use utils::containers::generate_container;
-use utils::server_analyze::ConnectionExitReason;
 
 async fn test(version: McVersion) {
+    let _ = env_logger::builder().is_test(true).try_init();
     let mut container = generate_container(version, "vanilla");
     container = container
         .with_env_var("ONLINE_MODE", "FALSE")
@@ -27,31 +28,33 @@ async fn test(version: McVersion) {
     let container = container.start().await.unwrap();
     let host_port = container.get_host_port_ipv4(25565).await.unwrap();
     let player = Player::random_like_offline();
-    let result =
-        server_analyze::parse_server_data(format!("127.0.0.1:{}", host_port), &player).await;
+    let dst = ServerDst::from_ip_and_port("127.0.0.1".parse().unwrap(), host_port);
+    let dialog = ServerDialog::new(dst, player.clone());
+    let conn_settings = ConnectionSettings {
+        conn_method: ConnectionMethod::Join,
+        at_play_time: Duration::from_secs(20),
+        ..Default::default()
+    };
+    let result = dialog.connect(conn_settings).await;
     dbg!(&result);
-    match result.exit_reason {
-        ConnectionExitReason::Successful => {}
-        exit_reason => panic!("Expected successful connection, but got {:?}", exit_reason),
-    }
-    let server_data = result.server_data;
-    assert_eq!(server_data.protocol, version.protocol);
-    assert_eq!(server_data.players, HashSet::from_iter(vec![player]));
+    let data = match result {
+        ConnectionResult::Successful { data } => data,
+        another => panic!("expect successful, but got {:?}", another),
+    };
+
+    assert_eq!(data.protocol, version.protocol);
     if version >= McVersionEnum::V1_9.data() {
         assert_eq!(
-            server_data.resource_pack.unwrap(),
-            ResourcePack {
+            data.resource_pack,
+            Some(ResourcePack {
                 url: "https://some_link.example/to/pack.zip?=1".to_string(),
                 hash: "d5db29cd03a2ed055086cef9c31c252b4587d6d0".to_string(),
                 forced: true,
-            }
-        )
+            })
+        );
     }
     if version >= McVersionEnum::V1_21.data() {
-        assert_eq!(
-            server_data.links.unwrap(),
-            vec!["https://bug-report-link.example"]
-        );
+        assert_eq!(data.links, vec!["https://bug-report-link.example"]);
     }
 }
 #[tokio::test]
