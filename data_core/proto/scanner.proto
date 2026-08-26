@@ -80,7 +80,7 @@ message McMod {
 
 message ResourcePack {
   string url = 1;
-  string hash = 2;
+  optional string hash = 2;
   bool forced = 3;
 }
 

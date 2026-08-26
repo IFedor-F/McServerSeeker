@@ -94,7 +94,7 @@ pub struct ServerMod {
 pub struct ResourcePack {
     pub server_id: i32,
     pub url: String,
-    pub hash: String,
+    pub hash: Option<String>,
     pub forced: bool,
 }
 
@@ -222,7 +222,7 @@ pub struct NewServerLinks {
 
 pub struct NewResourcePack {
     pub url: String,
-    pub hash: String,
+    pub hash: Option<String>,
     pub forced: bool,
 }
 impl NewServer {
