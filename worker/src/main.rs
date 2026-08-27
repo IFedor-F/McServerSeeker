@@ -2,9 +2,11 @@ mod analyze;
 mod mc_proto_server_data;
 mod scan;
 
+use crate::analyze::ExtraServerData;
+use crate::mc_proto_server_data::gen_protobuf_server_data;
 use crate::scan::MasscanBuilder;
 use data_core::proto::scanner as pb;
-use data_core::proto::scanner::{ScanOneRequest, ScanOneResult};
+use data_core::proto::scanner::{McServerData, ScanOneRequest, ScanOneResult};
 use hickory_resolver::TokioResolver;
 use mc_protocol::dialog::ConnectionMethod;
 use std::collections::HashMap;
@@ -62,6 +64,49 @@ impl WorkerService {
             state: Arc::new(Mutex::new(WorkerState::default())),
             dns_resolver,
         }
+    }
+    async fn parse_one_server(
+        &self,
+        target: String,
+        port: Option<u16>,
+        conn_method: ConnectionMethod,
+    ) -> Option<McServerData> {
+        use mc_protocol::dialog::*;
+        use mc_protocol::types::Player;
+        let player = Player::random_like_offline();
+        let serv_dst_log = format!(
+            "{target}{}",
+            port.map(|v| format!(":{v}")).unwrap_or("".to_string())
+        );
+
+        let dst = ServerDst::from_like_mc(target, port, &self.dns_resolver).await;
+        let dst = match dst {
+            Ok(dst) => dst,
+            Err(e) => {
+                log::debug!("[{serv_dst_log}] can't get server destination: {e}");
+                return None;
+            }
+        };
+
+        let dialog = ServerDialog::new(dst.clone(), player.clone());
+        let conn_settings = ConnectionSettings {
+            conn_method,
+            ..Default::default()
+        };
+
+        let result = dialog.connect(conn_settings).await;
+        log::trace!("[{serv_dst_log}] result: {:?}", result);
+        match result {
+            ConnectionResult::NoHandshake(e) => {
+                log::debug!("[{serv_dst_log}] can't handshake: {e}");
+                return None;
+            }
+            _ => {}
+        }
+        log::debug!("[{serv_dst_log}] parsed");
+        let extra_data = ExtraServerData::parse(player, conn_method, &result);
+        let data = result.get_data().unwrap(); // has data because we check this is not 'NoHandshake'
+        Some(gen_protobuf_server_data(dst, data, extra_data))
     }
 }
 #[tonic::async_trait]
@@ -220,22 +265,22 @@ impl pb::worker_service_server::WorkerService for WorkerService {
         &self,
         request: Request<ScanOneRequest>,
     ) -> Result<Response<ScanOneResult>, Status> {
-        use mc_protocol::dialog::ServerDst;
         let ScanOneRequest {
             target,
             port,
             scan_method,
         } = request.into_inner();
+        log::info!(
+            "scan one request: {target}{}",
+            port.map(|v| format!(":{v}")).unwrap_or("".to_string())
+        );
 
-        let dst = ServerDst::from_like_mc(target, port.map(|v| v as u16), &self.dns_resolver).await;
-        let dst = match dst {
-            Ok(dst) => dst,
-            Err(_) => return Ok(Response::new(ScanOneResult { server_data: None })),
-        };
         let scan_method = pb::ScanMethod::try_from(scan_method)
             .map_err(|e| Status::invalid_argument(format!("invalid enum variant {}", e.0)))?
             .into();
-        let server_data = scan::discover::parse_server(dst, scan_method).await;
+        let server_data = self
+            .parse_one_server(target, port.map(|v| v as u16), scan_method)
+            .await;
         Ok(Response::new(ScanOneResult { server_data }))
     }
 

@@ -680,6 +680,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlx",
+ "thiserror",
  "tonic",
  "tonic-prost",
  "tonic-prost-build",
