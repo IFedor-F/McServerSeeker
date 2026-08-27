@@ -1,13 +1,40 @@
 use crate::api::AppState;
 use crate::scan_jobs::worker_manager::WorkerManagerError;
 use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use axum::{
     Json,
     extract::{Path, State},
 };
-use data_core::api::manager::{JobId, JobProgress, ManagerJobInfo, ManagerJobReq, WorkerStatus};
+use data_core::api::manager::{
+    JobId, JobProgress, ManagerJobInfo, ManagerJobReq, ManagerScanOneReq, McServerData,
+    WorkerStatus,
+};
 
 // Manager endpoints
+#[utoipa::path(
+    post,
+    path = "/api/scan_one",
+    request_body = ManagerScanOneReq,
+    responses(
+        (status = 200, description = "Scan job successfully started", body = McServerData),
+        (status = 204, description = "No server data"),
+        (status = 404, description = "Some worker in request wasn't find in configuration", body = WorkerManagerError),
+        (status = 500, description = "Scan error", body = WorkerManagerError)
+    ),
+    tag = "manager"
+)]
+pub async fn scan_one(
+    State(app): State<AppState>,
+    Json(request): Json<ManagerScanOneReq>,
+) -> Result<Response, WorkerManagerError> {
+    let result = app.manager.run_one_scan(request).await?;
+
+    match result {
+        Some(data) => Ok((StatusCode::OK, Json(data)).into_response()),
+        None => Ok(StatusCode::NO_CONTENT.into_response()),
+    }
+}
 #[utoipa::path(
     post,
     path = "/api/jobs",
@@ -22,13 +49,7 @@ pub async fn job_new(
     State(app): State<AppState>,
     Json(man_job_req): Json<ManagerJobReq>,
 ) -> Result<Json<JobId>, WorkerManagerError> {
-    match app.manager.run_job(man_job_req).await {
-        Ok(job_id) => Ok(Json(job_id)),
-        Err(e) => {
-            log::warn!("failed to start job via API: {}", e);
-            Err(e)
-        }
-    }
+    app.manager.run_job(man_job_req).await.map(Json)
 }
 
 #[utoipa::path(

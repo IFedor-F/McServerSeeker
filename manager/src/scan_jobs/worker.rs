@@ -1,10 +1,10 @@
 use crate::database::ParsedForSqlServerData;
 use data_core::api::manager::{
-    DiscoverJobProgress, DiscoverRequest, JobProgress, RescanJobProgress, RescanRequest,
-    WorkerInfo, WorkerJobReq,
+    DiscoverJobProgress, DiscoverRequest, JobProgress, McServerData, RescanJobProgress,
+    RescanRequest, ScanMethod, WorkerInfo, WorkerJobReq,
 };
-use data_core::proto::scanner::JobCancel;
 use data_core::proto::scanner::worker_service_client::WorkerServiceClient;
+use data_core::proto::scanner::{JobCancel, ScanOneRequest};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
@@ -17,6 +17,9 @@ pub enum WorkerError {
 
     #[error(transparent)]
     InvalidStatusGet(#[from] tonic::Status),
+
+    #[error(transparent)]
+    InvalidData(#[from] data_core::api::manager::ParseServerDataError),
 
     #[error(transparent)]
     CantSendJobProgress(#[from] mpsc::error::SendError<WorkerJobProgressUpdate>),
@@ -90,6 +93,34 @@ impl Worker {
             worker_info,
             endpoint,
             load: WorkerLoad::new(),
+        }
+    }
+    pub async fn execute_one_server(
+        &self,
+        target: String,
+        port: Option<u16>,
+        method: ScanMethod,
+    ) -> Result<Option<McServerData>, WorkerError> {
+        let _load_guard = self.load.add_load(1f64);
+        let pb_req = tonic::Request::new(ScanOneRequest {
+            target,
+            port: port.map(|v| v as u32),
+            scan_method: method.into(),
+        });
+        let mut client = WorkerServiceClient::new(self.endpoint.connect().await?);
+        let result = client.scan_one(pb_req).await?.into_inner();
+        match result.server_data {
+            None => Ok(None),
+            Some(data) => match data.try_into() {
+                Ok(data) => Ok(Some(data)),
+                Err(e) => {
+                    log::error!(
+                        "can't parse data from worker '{}': {e}",
+                        self.worker_info.name
+                    );
+                    Err(e.into())
+                }
+            },
         }
     }
     pub async fn execute(

@@ -18,6 +18,7 @@ url = { version = "2.5", features = ["serde"] }
 utoipa = { version = "5.5", features = ["uuid", "url"] }
 itertools = "0.15"
 serde_json = "1.0"
+thiserror = "2.0.20"
 
 [build-dependencies]
 tonic-prost-build = "0.14"

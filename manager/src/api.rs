@@ -48,6 +48,7 @@ pub fn setup_router(
         .route("/api/jobs/{id}/progress", get(manager::progress))
         .route("/api/jobs", post(manager::job_new))
         .route("/api/jobs/{id}", delete(manager::cancel))
+        .route("/api/scan_one", post(manager::scan_one))
         .route("/api/workers", get(manager::workers_all_info))
         // scheduling
         .route("/api/schedules", get(scheduling::get_all_info))

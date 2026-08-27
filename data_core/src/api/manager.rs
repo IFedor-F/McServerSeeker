@@ -72,13 +72,10 @@ pub struct ManagerJobReq {
 #[serde(deny_unknown_fields)]
 pub struct ManagerScanOneReq {
     pub executor: JobExecutor,
-    #[schema(examples(
-        "server.example",
-        "server.example:25565",
-        "127.0.0.1",
-        "127.0.0.1:25565"
-    ))]
+    #[schema(examples("server.example", "127.0.0.1",))]
     pub target: String,
+    #[schema(example = json!(25565))]
+    pub port: Option<u16>,
     pub scan_method: ScanMethod,
 }
 

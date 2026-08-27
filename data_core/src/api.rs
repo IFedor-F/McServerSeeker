@@ -1,2 +1,2 @@
 pub mod manager;
-mod server_data;
+pub mod server_data;

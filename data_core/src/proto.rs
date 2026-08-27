@@ -80,6 +80,18 @@ pub mod scanner {
             }
         }
     }
+    impl From<ConnectionResult> for Option<api::server_data::ConnectionResult> {
+        fn from(value: ConnectionResult) -> Self {
+            use api::server_data::ConnectionResult::*;
+            match value {
+                ConnectionResult::LoginDisconnect => Some(LoginDisconnect),
+                ConnectionResult::ConfigurationDisconnect => Some(ConfigurationDisconnect),
+                ConnectionResult::PlayDisconnect => Some(PlayDisconnect),
+                ConnectionResult::Successful => Some(Successful),
+                ConnectionResult::UnknownConnectionResult => None,
+            }
+        }
+    }
 
     impl From<mc_protocol::dialog::ConnectionMethod> for ScanMethod {
         fn from(value: mc_protocol::dialog::ConnectionMethod) -> Self {
@@ -92,13 +104,13 @@ pub mod scanner {
         }
     }
 
-    impl From<Difficulty> for Option<mc_protocol::types::Difficulty> {
-        fn from(value: Difficulty) -> Option<mc_protocol::types::Difficulty> {
+    impl From<Difficulty> for Option<api::server_data::Difficulty> {
+        fn from(value: Difficulty) -> Option<api::server_data::Difficulty> {
             match value {
-                Difficulty::Peaceful => Some(mc_protocol::types::Difficulty::Peaceful),
-                Difficulty::Easy => Some(mc_protocol::types::Difficulty::Easy),
-                Difficulty::Normal => Some(mc_protocol::types::Difficulty::Normal),
-                Difficulty::Hard => Some(mc_protocol::types::Difficulty::Hard),
+                Difficulty::Peaceful => Some(api::server_data::Difficulty::Peaceful),
+                Difficulty::Easy => Some(api::server_data::Difficulty::Easy),
+                Difficulty::Normal => Some(api::server_data::Difficulty::Normal),
+                Difficulty::Hard => Some(api::server_data::Difficulty::Hard),
                 Difficulty::UnknownDifficulty => None,
             }
         }
@@ -115,13 +127,13 @@ pub mod scanner {
         }
     }
 
-    impl From<GameMode> for Option<mc_protocol::types::GameMode> {
-        fn from(value: GameMode) -> Option<mc_protocol::types::GameMode> {
+    impl From<GameMode> for Option<api::server_data::GameMode> {
+        fn from(value: GameMode) -> Option<api::server_data::GameMode> {
             match value {
-                GameMode::Survival => Some(mc_protocol::types::GameMode::Survival),
-                GameMode::Creative => Some(mc_protocol::types::GameMode::Creative),
-                GameMode::Adventure => Some(mc_protocol::types::GameMode::Adventure),
-                GameMode::Spectator => Some(mc_protocol::types::GameMode::Spectator),
+                GameMode::Survival => Some(api::server_data::GameMode::Survival),
+                GameMode::Creative => Some(api::server_data::GameMode::Creative),
+                GameMode::Adventure => Some(api::server_data::GameMode::Adventure),
+                GameMode::Spectator => Some(api::server_data::GameMode::Spectator),
                 GameMode::UnknownGameMode => None,
             }
         }
@@ -137,9 +149,9 @@ pub mod scanner {
         }
     }
 
-    impl From<ResourcePack> for mc_protocol::dialog::ResourcePack {
+    impl From<ResourcePack> for api::server_data::ResourcePack {
         fn from(value: ResourcePack) -> Self {
-            mc_protocol::dialog::ResourcePack {
+            api::server_data::ResourcePack {
                 url: value.url,
                 hash: value.hash,
                 forced: value.forced,
@@ -155,9 +167,9 @@ pub mod scanner {
             }
         }
     }
-    impl From<McMod> for mc_protocol::states::status::s2c::status_response::ForgeMod {
+    impl From<McMod> for api::server_data::McMod {
         fn from(value: McMod) -> Self {
-            mc_protocol::states::status::s2c::status_response::ForgeMod {
+            api::server_data::McMod {
                 mod_id: value.mod_id,
                 version: value.version,
             }
@@ -202,21 +214,21 @@ pub mod scanner {
         }
     }
 
-    impl From<api::manager::RescanTarget> for RescanTarget {
-        fn from(value: api::manager::RescanTarget) -> Self {
-            Self {
-                ip: Some(IpAddr::from(value.ip)),
-                port: value.port as u32,
-                player_name: value.player_name,
-            }
-        }
-    }
     impl From<api::manager::RescanRequest> for RescanRequest {
         fn from(value: api::manager::RescanRequest) -> Self {
             Self {
                 method: value.method as i32,
                 rate: value.rate,
                 targets: value.targets.into_iter().map(RescanTarget::from).collect(),
+            }
+        }
+    }
+    impl From<api::manager::RescanTarget> for RescanTarget {
+        fn from(value: api::manager::RescanTarget) -> Self {
+            Self {
+                ip: Some(IpAddr::from(value.ip)),
+                port: value.port as u32,
+                player_name: value.player_name,
             }
         }
     }

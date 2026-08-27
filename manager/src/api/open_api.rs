@@ -6,8 +6,8 @@ use crate::player_tracking::tracking_service::PlayerTrackingServiceError;
 use crate::scan_jobs::schedule::ScheduleManagerError;
 use crate::scan_jobs::worker_manager::WorkerManagerError;
 use data_core::api::manager::{
-    JobId, JobProgress, ManagerJobInfo, ManagerJobReq, PlayerTrackInfo, ScheduleData, WebhookInfo,
-    WorkerStatus,
+    JobId, JobProgress, ManagerJobInfo, ManagerJobReq, ManagerScanOneReq, McServerData,
+    PlayerTrackInfo, ScheduleData, WebhookInfo, WorkerStatus,
 };
 use utoipa::OpenApi;
 
@@ -16,6 +16,7 @@ use utoipa::OpenApi;
 #[openapi(
     paths(
         // manager
+        manager::scan_one,
         manager::all_info,
         manager::job_new,
         manager::cancel,
@@ -41,14 +42,16 @@ use utoipa::OpenApi;
     ),
     components(
         schemas(
+            ManagerJobReq,
+            ManagerScanOneReq,
             JobId,
             JobProgress,
-            ManagerJobInfo,
-            ManagerJobReq,
-            PlayerTrackInfo,
-            ScheduleData,
-            WebhookInfo,
             WorkerStatus,
+            ManagerJobInfo,
+            ScheduleData,
+            McServerData,
+            PlayerTrackInfo,
+            WebhookInfo,
             WorkerManagerError,
             ScheduleManagerError,
             PlayerTrackingServiceError

@@ -5,7 +5,8 @@ use crate::scan_jobs::worker::WorkerError;
 use axum::Json;
 use axum::http::StatusCode;
 use data_core::api::manager::{
-    JobExecutor, JobId, JobProgress, ManagerJobInfo, ManagerJobReq, WorkerStatus,
+    JobExecutor, JobId, JobProgress, ManagerJobInfo, ManagerJobReq, ManagerScanOneReq,
+    McServerData, WorkerStatus,
 };
 use futures::FutureExt;
 use serde::{Deserialize, Serialize};
@@ -21,12 +22,15 @@ use tokio::sync::{RwLock, mpsc};
 pub enum WorkerManagerError {
     #[error("worker '{0}' was not found in the manager")]
     WorkerNotFound(String),
+    #[error("worker error while trying to scan")]
+    WorkerError(String),
 }
 
 impl axum::response::IntoResponse for WorkerManagerError {
     fn into_response(self) -> axum::response::Response {
         let status = match &self {
             WorkerManagerError::WorkerNotFound(_) => StatusCode::NOT_FOUND,
+            WorkerManagerError::WorkerError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
         let payload = json!({
             "message": self.to_string(),
@@ -120,6 +124,29 @@ impl WorkerManagerService {
                 Ok(())
             }
             _ => Ok(()),
+        }
+    }
+    pub async fn run_one_scan(
+        &self,
+        req: ManagerScanOneReq,
+    ) -> Result<Option<McServerData>, WorkerManagerError> {
+        let worker = match req.executor.clone() {
+            JobExecutor::Worker { name } => self.find_worker_by_name(name)?,
+            JobExecutor::LeastLoadedSpecified { worker_names }
+            | JobExecutor::BalanceSpecified { worker_names } => {
+                let founded_workers = self.get_specified_workers(worker_names)?;
+                select_less_loaded_worker(founded_workers)
+            }
+            JobExecutor::LeastLoadedAll | JobExecutor::BalanceAll => {
+                select_less_loaded_worker(self.workers.clone().into_values())
+            }
+        };
+        let result = worker
+            .execute_one_server(req.target, req.port, req.scan_method)
+            .await;
+        match result {
+            Ok(data) => Ok(data),
+            Err(e) => Err(WorkerManagerError::WorkerError(e.to_string())),
         }
     }
     pub async fn run_job(&self, job_req: ManagerJobReq) -> Result<JobId, WorkerManagerError> {
