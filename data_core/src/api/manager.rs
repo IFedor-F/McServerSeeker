@@ -164,9 +164,9 @@ pub struct DiscoverJobProgress {
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RescanJobProgress {
-    pub all: usize,
-    pub checked: usize,
-    pub successful: usize,
+    pub all: u32,
+    pub checked: u32,
+    pub successful: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]

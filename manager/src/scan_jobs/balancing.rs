@@ -262,7 +262,7 @@ fn sum_rescan_update(values: Vec<&RescanJobProgress>) -> RescanJobProgress {
     RescanJobProgress {
         all: values[0].all,
         checked: values.iter().map(|v| v.checked).sum(),
-        successful: values.iter().map(|v| v.successful).sum(),
+        successful: values.iter().map(|v| v.successful).sum::<u32>().min(100u32),
     }
 }
 
@@ -272,7 +272,8 @@ fn sum_discover_update(values: Vec<&DiscoverJobProgress>, weights: &[f32]) -> Di
             .iter()
             .zip(weights)
             .map(|(v, &w)| v.scanned_progress * w)
-            .sum(),
+            .sum::<f32>()
+            .min(100f32),
         founded: values.iter().map(|v| v.founded).sum(),
         parsing_now: values.iter().map(|v| v.parsing_now).sum(),
         successful: values.iter().map(|v| v.successful).sum(),

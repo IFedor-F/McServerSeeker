@@ -220,7 +220,7 @@ async fn handle_rescan(
     cancellation_token: CancellationToken,
 ) -> Result<(), WorkerError> {
     let mut work_id: Option<u32> = None;
-    let all_count = req.targets.len();
+    let all_count = req.targets.len() as u32;
     let mut successful_count = 0;
     let rescan_req = tonic::Request::new(req.into());
     let mut stream = client.rescan(rescan_req).await?.into_inner();
@@ -244,7 +244,7 @@ async fn handle_rescan(
                         }
                         let progress = JobProgress::Rescan(RescanJobProgress {
                             all: all_count,
-                            checked: data.checked as usize,
+                            checked: data.checked,
                             successful: successful_count,
                         });
                         tx_stats.send(WorkerJobProgressUpdate::new(id, progress)).await?
