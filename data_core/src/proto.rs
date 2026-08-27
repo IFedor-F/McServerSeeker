@@ -214,17 +214,17 @@ pub mod scanner {
         }
     }
 
-    impl From<api::manager::RescanRequest> for RescanRequest {
-        fn from(value: api::manager::RescanRequest) -> Self {
+    impl From<api::manager::ScanSelectedRequest> for ScanSelectedRequest {
+        fn from(value: api::manager::ScanSelectedRequest) -> Self {
             Self {
                 method: value.method as i32,
                 rate: value.rate,
-                targets: value.targets.into_iter().map(RescanTarget::from).collect(),
+                targets: value.targets.into_iter().map(ScanTarget::from).collect(),
             }
         }
     }
-    impl From<api::manager::RescanTarget> for RescanTarget {
-        fn from(value: api::manager::RescanTarget) -> Self {
+    impl From<api::manager::ScanTarget> for ScanTarget {
+        fn from(value: api::manager::ScanTarget) -> Self {
             Self {
                 ip: Some(IpAddr::from(value.ip)),
                 port: value.port as u32,

@@ -1,16 +1,16 @@
 use crate::database::ParsedForSqlServerData;
-use crate::scan_jobs::worker::WorkerError;
-use crate::scan_jobs::{ManagerTask, Worker};
+use crate::scan_jobs::Worker;
+use crate::scan_jobs::worker::{WorkerError, WorkerJobReq};
 use data_core::api::manager::{
-    DiscoverJobProgress, DiscoverRequest, JobProgress, RescanJobProgress, RescanRequest,
-    WorkerJobReq,
+    DiscoverJobProgress, DiscoverRequest, JobProgress, ScanSelectedJobProgress, ScanSelectedRequest,
 };
 use futures::StreamExt;
 use futures::stream::FuturesUnordered;
 use ipnetwork::{IpNetwork, Ipv4Network, Ipv6Network, NetworkSize};
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::sync::Arc;
-use tokio::sync::mpsc;
+use tokio::sync::{RwLock, mpsc};
+use tokio_util::sync::CancellationToken;
 
 pub struct Balancer {
     workers: Vec<Arc<Worker>>,
@@ -22,22 +22,22 @@ impl Balancer {
     }
     pub async fn run_work(
         self,
-        job_task: ManagerTask,
+        cancellation_token: CancellationToken,
+        progress_state: Arc<RwLock<JobProgress>>,
+        req: WorkerJobReq,
         db_queue: mpsc::Sender<ParsedForSqlServerData>,
     ) -> Result<(), WorkerError> {
         let workers_count = self.workers.len();
-        let cancel_token = job_task.cancellation_token;
-        let progress = job_task.progress;
         let (tx_stats, mut rx_stats) = mpsc::channel(16);
         let mut worker_futures = FuturesUnordered::new();
-        let (requests, weights) = divide_job_request(job_task.req.job_request, &self.workers);
+        let (requests, weights) = divide_job_request(req, &self.workers);
         for (id, (worker, req)) in self.workers.iter().zip(requests).enumerate() {
-            worker_futures.push(worker.execute(
+            worker_futures.push(worker.execute_job(
                 id,
                 req,
                 tx_stats.clone(),
                 db_queue.clone(),
-                cancel_token.clone(),
+                cancellation_token.clone(),
             ));
         }
         drop(tx_stats);
@@ -53,7 +53,7 @@ impl Balancer {
 
                 Some(new_progress) = rx_stats.recv() => {
                     updates_vec[new_progress.id] = new_progress.data;
-                    let mut current_progress = progress.write().await;
+                    let mut current_progress = progress_state.write().await;
                     *current_progress = sum_updates(&updates_vec, &weights);
                 }
                 else => {
@@ -78,12 +78,12 @@ fn divide_job_request(req: WorkerJobReq, workers: &[Arc<Worker>]) -> (Vec<Worker
     let shares: Vec<f32> = weights.iter().map(|w| w / total_weight).collect();
 
     match req {
-        WorkerJobReq::Rescan(rescan_req) => (split_rescan(rescan_req, &shares), shares),
+        WorkerJobReq::ScanSelected(rescan_req) => (split_rescan(rescan_req, &shares), shares),
         WorkerJobReq::Discover(discover_req) => (split_discover(discover_req, &shares), shares),
     }
 }
 
-fn split_rescan(req: RescanRequest, shares: &[f32]) -> Vec<WorkerJobReq> {
+fn split_rescan(req: ScanSelectedRequest, shares: &[f32]) -> Vec<WorkerJobReq> {
     let total_targets = req.targets.len();
     let mut requests = Vec::with_capacity(shares.len());
     let mut targets_iter = req.targets.into_iter();
@@ -92,7 +92,7 @@ fn split_rescan(req: RescanRequest, shares: &[f32]) -> Vec<WorkerJobReq> {
         // Last worker takes all remaining targets to avoid floating point rounding loss
         if i == shares.len() - 1 {
             let remaining: Vec<_> = targets_iter.collect();
-            requests.push(WorkerJobReq::Rescan(RescanRequest {
+            requests.push(WorkerJobReq::ScanSelected(ScanSelectedRequest {
                 method: req.method.clone(),
                 rate: req.rate,
                 targets: remaining,
@@ -102,7 +102,7 @@ fn split_rescan(req: RescanRequest, shares: &[f32]) -> Vec<WorkerJobReq> {
 
         let count = (total_targets as f32 * share).round() as usize;
         let worker_targets: Vec<_> = targets_iter.by_ref().take(count).collect();
-        requests.push(WorkerJobReq::Rescan(RescanRequest {
+        requests.push(WorkerJobReq::ScanSelected(ScanSelectedRequest {
             method: req.method.clone(),
             rate: req.rate,
             targets: worker_targets,
@@ -244,11 +244,11 @@ fn sum_updates(values: &[JobProgress], weights: &[f32]) -> JobProgress {
                 .collect(),
             weights,
         )),
-        JobProgress::Rescan(_) => JobProgress::Rescan(sum_rescan_update(
+        JobProgress::ScanSelected(_) => JobProgress::ScanSelected(sum_rescan_update(
             values
                 .into_iter()
                 .map(|v| match v {
-                    JobProgress::Rescan(v) => v,
+                    JobProgress::ScanSelected(v) => v,
                     _ => {
                         panic!("different values in sum_updates function")
                     }
@@ -258,8 +258,8 @@ fn sum_updates(values: &[JobProgress], weights: &[f32]) -> JobProgress {
     }
 }
 
-fn sum_rescan_update(values: Vec<&RescanJobProgress>) -> RescanJobProgress {
-    RescanJobProgress {
+fn sum_rescan_update(values: Vec<&ScanSelectedJobProgress>) -> ScanSelectedJobProgress {
+    ScanSelectedJobProgress {
         all: values[0].all,
         checked: values.iter().map(|v| v.checked).sum(),
         successful: values.iter().map(|v| v.successful).sum::<u32>().min(100u32),

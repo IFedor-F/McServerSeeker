@@ -43,7 +43,7 @@ impl ExtraServerData {
                         };
                     }
                     DisconnectLoginReason::DialogError(e) => {
-                        log::warn!("dialog error: {:?}", e);
+                        log::debug!("dialog error: {:?}", e);
                         is_online_mode = check_online_mode_by_player_list(data);
                     }
                     DisconnectLoginReason::Timeout => {
@@ -78,7 +78,7 @@ impl ExtraServerData {
                         log::warn!("can't resolve server host in transfer packet: {}", host)
                     }
                     DisconnectConfigurationReason::DialogError(e) => {
-                        log::warn!("dialog error: {:?}", e)
+                        log::debug!("dialog error: {:?}", e)
                     }
                     DisconnectConfigurationReason::Timeout => {
                         log::debug!("disconnect because timeout at configuration state")

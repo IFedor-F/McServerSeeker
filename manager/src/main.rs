@@ -50,7 +50,7 @@ async fn main() {
     let manager_service = configure_manager(&db_pool, &config);
 
     // scheduler
-    let scheduler = configure_scheduler(&db_pool, manager_service.clone(), config.jobs).await;
+    let scheduler = configure_scheduler(manager_service.clone(), config.jobs).await;
 
     // tracking
     let player_tracking_service = if let Some(t) = config.player_tracking {
@@ -103,11 +103,10 @@ async fn main() {
 }
 
 async fn configure_scheduler(
-    db_pool: &PgPool,
     manager_service: Arc<WorkerManagerService>,
     jobs: Vec<ScheduleData>,
 ) -> Arc<ScheduleService> {
-    let scheduler = ScheduleService::new(db_pool.clone(), manager_service);
+    let scheduler = ScheduleService::new(manager_service);
     for job in jobs {
         let job_name = job.name.clone();
         scheduler
@@ -128,7 +127,7 @@ fn configure_manager(db_pool: &PgPool, config: &Config) -> Arc<WorkerManagerServ
         None
     };
     let db_queue_worker = DbQueueWorker::new(db_pool.clone());
-    let mut manager_service = WorkerManagerService::new(db_queue_worker);
+    let mut manager_service = WorkerManagerService::new(db_pool.clone(), db_queue_worker);
     for worker_info in config.workers.iter() {
         let mut endpoint =
             Endpoint::from_shared(worker_info.url.to_string()).expect("invalid worker endpoint");

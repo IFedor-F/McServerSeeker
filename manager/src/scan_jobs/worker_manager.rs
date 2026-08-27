@@ -1,20 +1,23 @@
 use super::{ManagerTask, Worker};
+use crate::database;
 use crate::database::{DbQueueWorker, ParsedForSqlServerData};
 use crate::scan_jobs::balancing::Balancer;
-use crate::scan_jobs::worker::WorkerError;
+use crate::scan_jobs::worker::{WorkerError, WorkerJobReq};
 use axum::Json;
 use axum::http::StatusCode;
 use data_core::api::manager::{
     JobExecutor, JobId, JobProgress, ManagerJobInfo, ManagerJobReq, ManagerScanOneReq,
-    McServerData, WorkerStatus,
+    McServerData, ScanSelectedRequest, TaskInfo, WorkerStatus,
 };
 use futures::FutureExt;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use sqlx::PgPool;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::{RwLock, mpsc};
+use tokio_util::sync::CancellationToken;
 
 #[derive(thiserror::Error, Debug, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(tag = "type", content = "detail")]
@@ -24,13 +27,16 @@ pub enum WorkerManagerError {
     WorkerNotFound(String),
     #[error("worker error while trying to scan")]
     WorkerError,
+    #[error("database error")]
+    DatabaseError,
 }
 
 impl axum::response::IntoResponse for WorkerManagerError {
     fn into_response(self) -> axum::response::Response {
+        use WorkerManagerError::*;
         let status = match &self {
-            WorkerManagerError::WorkerNotFound(_) => StatusCode::NOT_FOUND,
-            WorkerManagerError::WorkerError => StatusCode::INTERNAL_SERVER_ERROR,
+            WorkerNotFound(_) => StatusCode::NOT_FOUND,
+            WorkerError | DatabaseError => StatusCode::INTERNAL_SERVER_ERROR,
         };
         let payload = json!({
             "message": self.to_string(),
@@ -45,12 +51,13 @@ pub struct WorkerManagerService {
     next_job_id: AtomicU64,
     tasks: Arc<RwLock<HashMap<JobId, ManagerTask>>>,
     workers: HashMap<String, Arc<Worker>>,
+    db_pool: PgPool,
     db_queue: mpsc::Sender<ParsedForSqlServerData>,
 }
 
 // helpers and init
 impl WorkerManagerService {
-    pub fn new(db_queue_worker: DbQueueWorker) -> Self {
+    pub fn new(db_pool: PgPool, db_queue_worker: DbQueueWorker) -> Self {
         let (tx, rx) = mpsc::channel(256);
         tokio::spawn(async move {
             db_queue_worker.run(rx).await;
@@ -59,6 +66,7 @@ impl WorkerManagerService {
             next_job_id: AtomicU64::new(1),
             tasks: Arc::new(RwLock::new(HashMap::new())),
             workers: HashMap::new(),
+            db_pool,
             db_queue: tx,
         }
     }
@@ -152,35 +160,55 @@ impl WorkerManagerService {
             }
         }
     }
-    pub async fn run_job(&self, job_req: ManagerJobReq) -> Result<JobId, WorkerManagerError> {
-        let job_task = ManagerTask::new(job_req);
+    pub async fn run_job(
+        &self,
+        manager_job_req: ManagerJobReq,
+    ) -> Result<JobId, WorkerManagerError> {
+        let job_task = ManagerTask::new(manager_job_req);
+        let worker_req = match job_task.req.task.clone() {
+            TaskInfo::Discover(req) => WorkerJobReq::Discover(req.into()),
+            TaskInfo::ScanSelected(req) => WorkerJobReq::ScanSelected(req.into()),
+            TaskInfo::RescanDb { rate, method } => {
+                let result = database::requests::get_targets(&self.db_pool).await;
+                match result {
+                    Ok(targets) => WorkerJobReq::ScanSelected(ScanSelectedRequest {
+                        method: method.into(),
+                        rate,
+                        targets,
+                    }),
+                    Err(e) => {
+                        log::error!("database error while trying to rescan db: {e}");
+                        return Err(WorkerManagerError::DatabaseError);
+                    }
+                }
+            }
+        };
+        let c_token = job_task.cancellation_token.clone();
+        let pr = job_task.progress.clone();
+        let db_q = self.db_queue.clone();
 
         let future = match job_task.req.executor.clone() {
             JobExecutor::Worker { name } => {
                 let worker = self.find_worker_by_name(name)?;
-                execute_one_worker(job_task.clone(), worker, self.db_queue.clone()).boxed()
+                execute_one_worker(worker, c_token, pr, worker_req, db_q).boxed()
             }
             JobExecutor::LeastLoadedSpecified { worker_names } => {
                 let founded_workers = self.get_specified_workers(worker_names)?;
                 let worker = select_less_loaded_worker(founded_workers);
-                execute_one_worker(job_task.clone(), worker, self.db_queue.clone()).boxed()
+                execute_one_worker(worker, c_token, pr, worker_req, db_q).boxed()
             }
             JobExecutor::LeastLoadedAll => {
                 let worker = select_less_loaded_worker(self.workers.clone().into_values());
-                execute_one_worker(job_task.clone(), worker, self.db_queue.clone()).boxed()
+                execute_one_worker(worker, c_token, pr, worker_req, db_q).boxed()
             }
             JobExecutor::BalanceSpecified { worker_names } => {
                 let founded_workers = self.get_specified_workers(worker_names)?;
                 let balancer = Balancer::new(founded_workers);
-                balancer
-                    .run_work(job_task.clone(), self.db_queue.clone())
-                    .boxed()
+                balancer.run_work(c_token, pr, worker_req, db_q).boxed()
             }
             JobExecutor::BalanceAll => {
                 let balancer = Balancer::new(self.workers.clone().into_values().collect());
-                balancer
-                    .run_work(job_task.clone(), self.db_queue.clone())
-                    .boxed()
+                balancer.run_work(c_token, pr, worker_req, db_q).boxed()
             }
         };
         let job_id = self.insert_job(job_task).await;
@@ -220,8 +248,10 @@ impl WorkerManagerService {
         if let Some(task) = task {
             Some(ManagerJobInfo {
                 id: job_id,
-                req: task.req.clone(),
+                name: task.req.name.clone(),
+                executor: task.req.executor.clone(),
                 progress: task.progress.read().await.clone(),
+                task: task.req.task.clone(),
             })
         } else {
             None
@@ -232,11 +262,12 @@ impl WorkerManagerService {
         let mut results = Vec::with_capacity(tasks.len());
 
         for (&id, task) in tasks.iter() {
-            let progress = task.progress.read().await.clone();
             results.push(ManagerJobInfo {
                 id,
-                req: task.req.clone(),
-                progress,
+                name: task.req.name.clone(),
+                executor: task.req.executor.clone(),
+                progress: task.progress.read().await.clone(),
+                task: task.req.task.clone(),
             });
         }
         results
@@ -267,36 +298,23 @@ where
 }
 
 async fn execute_one_worker(
-    job_task: ManagerTask,
     worker: Arc<Worker>,
+    cancellation_token: CancellationToken,
+    progress_state: Arc<RwLock<JobProgress>>,
+    worker_job_req: WorkerJobReq,
     db_queue: mpsc::Sender<ParsedForSqlServerData>,
 ) -> Result<(), WorkerError> {
-    let cancel_token = job_task.cancellation_token;
-    let progress = job_task.progress;
     let (tx_stats, mut rx_stats) = mpsc::channel(16);
-    let fut = worker.execute(
-        0,
-        job_task.req.job_request,
-        tx_stats,
-        db_queue,
-        cancel_token,
-    );
+    let fut = worker.execute_job(0, worker_job_req, tx_stats, db_queue, cancellation_token);
     tokio::pin!(fut);
 
     loop {
         tokio::select! {
             res = &mut fut => {
-                return match res {
-                    Ok(_) => {
-                        Ok(())
-                    }
-                    Err(e) => {
-                        Err(e)
-                    }
-                }
+                return res.map(|_| ())
             }
             Some(new_progress) = rx_stats.recv() => {
-                let mut current_progress = progress.write().await;
+                let mut current_progress = progress_state.write().await;
                 *current_progress = new_progress.data;
             }
         }

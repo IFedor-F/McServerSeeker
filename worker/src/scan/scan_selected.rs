@@ -10,12 +10,12 @@ use std::sync::Arc;
 use tokio::sync::{Semaphore, mpsc};
 use tokio::task::JoinSet;
 
-pub async fn rescan(
+pub async fn scan_selected(
     job_id: u32,
-    targets: Vec<pb::RescanTarget>,
+    targets: Vec<pb::ScanTarget>,
     max_connections: usize,
     method: ConnectionMethod,
-) -> Result<mpsc::Receiver<pb::RescanUpdate>, tonic::Status> {
+) -> Result<mpsc::Receiver<pb::ScanSelectedUpdate>, tonic::Status> {
     let (tx, rx) = mpsc::channel(256);
 
     let mut join_set = JoinSet::new();
@@ -42,7 +42,7 @@ pub async fn rescan(
 
         // send job_id first
 
-        let job_id_msg = pb::RescanUpdate {
+        let job_id_msg = pb::ScanSelectedUpdate {
             job_id,
             checked,
             server_data: None,
@@ -54,7 +54,7 @@ pub async fn rescan(
             checked += 1;
             match res {
                 Ok(Some(data)) => {
-                    let update = pb::RescanUpdate {
+                    let update = pb::ScanSelectedUpdate {
                         job_id,
                         checked,
                         server_data: Some(data),

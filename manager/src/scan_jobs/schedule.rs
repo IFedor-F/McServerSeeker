@@ -2,14 +2,10 @@ use crate::scan_jobs::WorkerManagerService;
 use crate::scan_jobs::worker_manager::WorkerManagerError;
 use axum::Json;
 use chrono::Utc;
-use data_core::api::manager::{
-    ManagerJobReq, RescanRequest, RescanTarget, Schedule, ScheduleData, ScheduleJobData,
-    WorkerJobReq,
-};
+use data_core::api::manager::{ManagerJobReq, Schedule, ScheduleData};
 use reqwest::StatusCode;
 use serde::Serialize;
 use serde_json::json;
-use sqlx::PgPool;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -49,6 +45,7 @@ impl ScheduleJob {
     }
     fn stop_if_running(&mut self) {
         if let Some(handle) = self.handle.take() {
+            log::info!("stopping schedule '{}'", self.info.name);
             handle.abort();
         }
         self.handle = None;
@@ -68,15 +65,13 @@ impl Drop for ScheduleJob {
 pub struct ScheduleService {
     manager: Arc<WorkerManagerService>,
     schedules: Mutex<HashMap<String, ScheduleJob>>,
-    db_pool: PgPool,
 }
 
 impl ScheduleService {
-    pub fn new(db_pool: PgPool, manager: Arc<WorkerManagerService>) -> Self {
+    pub fn new(manager: Arc<WorkerManagerService>) -> Self {
         Self {
             manager,
             schedules: Mutex::new(HashMap::new()),
-            db_pool,
         }
     }
     pub async fn get_schedule(&self, name: String) -> Result<ScheduleData, ScheduleManagerError> {
@@ -112,38 +107,10 @@ impl ScheduleService {
             .ok_or(ScheduleManagerError::ScheduleNameNotFound(name))?;
 
         let info = schedule_job.info.clone();
-        let job_request = match info.job_data {
-            ScheduleJobData::Discover(data) => WorkerJobReq::Discover(data),
-            ScheduleJobData::RescanDb { method, rate } => {
-                let rows = match sqlx::query!("SELECT ip, port, last_used_nick FROM data.servers")
-                    .fetch_all(&self.db_pool)
-                    .await
-                {
-                    Ok(rows) => rows,
-                    Err(e) => {
-                        log::error!("database error while trying to rescan database: {e}");
-                        return Ok(());
-                    }
-                };
-                let targets = rows
-                    .into_iter()
-                    .map(|r| RescanTarget {
-                        ip: r.ip.ip(),
-                        port: r.port as u16,
-                        player_name: r.last_used_nick,
-                    })
-                    .collect();
-                WorkerJobReq::Rescan(RescanRequest {
-                    method,
-                    rate,
-                    targets,
-                })
-            }
-        };
         let manager_job_req = ManagerJobReq {
             name: info.name.clone(),
             executor: info.executor.clone(),
-            job_request,
+            task: info.task,
         };
 
         let handle = match info.schedule.clone() {

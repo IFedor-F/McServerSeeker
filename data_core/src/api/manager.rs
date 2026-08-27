@@ -36,14 +36,7 @@ pub struct ScheduleData {
     #[schema(example = json!(15))]
     pub wait_secs: u64,
     #[schema(inline)]
-    pub job_data: ScheduleJobData,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", tag = "type", deny_unknown_fields)]
-pub enum ScheduleJobData {
-    Discover(DiscoverRequest),
-    RescanDb { method: ScanMethod, rate: u32 },
+    pub task: TaskInfo,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
@@ -53,21 +46,14 @@ pub struct JobId(pub u64);
 #[serde(deny_unknown_fields)]
 pub struct ManagerJobInfo {
     pub id: JobId,
+    pub name: String,
+    pub executor: JobExecutor,
     #[schema(inline)]
-    pub req: ManagerJobReq,
+    pub task: TaskInfo,
     #[schema(inline)]
     pub progress: JobProgress,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-#[serde(deny_unknown_fields)]
-pub struct ManagerJobReq {
-    #[serde(deserialize_with = "deserialize_non_empty_string")]
-    pub name: String,
-    pub executor: JobExecutor,
-    #[schema(inline)]
-    pub job_request: WorkerJobReq,
-}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ManagerScanOneReq {
@@ -80,10 +66,21 @@ pub struct ManagerScanOneReq {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ManagerJobReq {
+    #[serde(deserialize_with = "deserialize_non_empty_string")]
+    pub name: String,
+    pub executor: JobExecutor,
+    #[schema(inline)]
+    pub task: TaskInfo,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case", tag = "type", deny_unknown_fields)]
-pub enum WorkerJobReq {
+pub enum TaskInfo {
     Discover(DiscoverRequest),
-    Rescan(RescanRequest),
+    ScanSelected(ScanSelectedRequest),
+    RescanDb { rate: u32, method: ScanMethod },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
@@ -114,7 +111,7 @@ pub struct PortRange {
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
-pub struct RescanRequest {
+pub struct ScanSelectedRequest {
     #[schema(value_type = String, example = "only_handshake")]
     pub method: ScanMethod,
     #[schema(example = json!(1000))]
@@ -122,11 +119,11 @@ pub struct RescanRequest {
     #[schema(
         example = json!([{"ip": "127.0.0.1", "port": 25565, "player_name": "abcdef32"}, {"ip": "192.168.1.2", "port": 25565, "player_name": "mcname123"}])
     )]
-    pub targets: Vec<RescanTarget>,
+    pub targets: Vec<ScanTarget>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
-pub struct RescanTarget {
+pub struct ScanTarget {
     #[schema(value_type = String, example = "127.0.0.1")]
     pub ip: IpAddr,
     #[schema(example = "25565")]
@@ -135,18 +132,11 @@ pub struct RescanTarget {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub enum JobType {
-    Discover,
-    Rescan,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case", tag = "type", deny_unknown_fields)]
 pub enum JobProgress {
     NoData,
     Discover(DiscoverJobProgress),
-    Rescan(RescanJobProgress),
+    ScanSelected(ScanSelectedJobProgress),
 }
 impl Default for JobProgress {
     fn default() -> Self {
@@ -163,17 +153,10 @@ pub struct DiscoverJobProgress {
 }
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
-pub struct RescanJobProgress {
+pub struct ScanSelectedJobProgress {
     pub all: u32,
     pub checked: u32,
     pub successful: u32,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-#[serde(deny_unknown_fields)]
-pub struct JobStatus {
-    pub job_type: JobType,
-    pub data: JobProgress,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]

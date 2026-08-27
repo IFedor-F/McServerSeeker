@@ -20,7 +20,7 @@ message IpPrefix {
 enum WorkerJobType {
   UNKNOWN_JOB_TYPE = 0;
   DISCOVER = 1;
-  RESCANNING = 2;
+  SCANNING_SELECTED = 2;
 }
 
 message WorkerJob {
@@ -128,7 +128,7 @@ message McServerData {
   optional string player_name = 34;
 }
 
-message RescanTarget {
+message ScanTarget {
   IpAddr ip = 1;
   uint32 port = 2;
   optional string player_name = 3;
@@ -150,10 +150,10 @@ message ScanOneRequest {
   ScanMethod scan_method = 3;
 }
 
-message RescanRequest {
+message ScanSelectedRequest {
   ScanMethod method = 1;
   uint32 rate = 2;
-  repeated RescanTarget targets = 3;
+  repeated ScanTarget targets = 3;
 }
 
 message JobCancel {
@@ -174,7 +174,7 @@ message DiscoverUpdate {
   optional McServerData server_data = 3;
 }
 
-message RescanUpdate{
+message ScanSelectedUpdate{
   uint32 job_id = 1;
   uint32 checked = 2;
   optional McServerData server_data = 3;
@@ -192,7 +192,7 @@ message WorkerStatus {
 // worker service
 service WorkerService {
   rpc Discover(DiscoverRequest) returns (stream DiscoverUpdate);
-  rpc Rescan(RescanRequest) returns (stream RescanUpdate);
+  rpc ScanSelected(ScanSelectedRequest) returns (stream ScanSelectedUpdate);
   rpc ScanOne(ScanOneRequest) returns (ScanOneResult);
 
   rpc GetStatus(google.protobuf.Empty) returns (WorkerStatus);

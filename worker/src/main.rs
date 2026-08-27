@@ -201,14 +201,14 @@ impl pb::worker_service_server::WorkerService for WorkerService {
         Ok(Response::new(ReceiverStream::new(rx)))
     }
 
-    type RescanStream = ReceiverStream<Result<pb::RescanUpdate, Status>>;
+    type ScanSelectedStream = ReceiverStream<Result<pb::ScanSelectedUpdate, Status>>;
 
-    async fn rescan(
+    async fn scan_selected(
         &self,
-        request: Request<pb::RescanRequest>,
-    ) -> Result<Response<Self::RescanStream>, Status> {
+        request: Request<pb::ScanSelectedRequest>,
+    ) -> Result<Response<Self::ScanSelectedStream>, Status> {
         log::debug!("rescan request: {:?}", request);
-        let pb::RescanRequest {
+        let pb::ScanSelectedRequest {
             method,
             rate,
             targets,
@@ -229,7 +229,7 @@ impl pb::worker_service_server::WorkerService for WorkerService {
         let state_clone = self.state.clone();
 
         log::info!("[job {job_id}] started rescan");
-        let mut scan_rx = scan::rescan(job_id, targets, rate as usize, method).await?;
+        let mut scan_rx = scan::scan_selected(job_id, targets, rate as usize, method).await?;
         tokio::spawn(async move {
             loop {
                 tokio::select! {
