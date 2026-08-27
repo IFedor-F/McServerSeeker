@@ -23,14 +23,14 @@ pub enum WorkerManagerError {
     #[error("worker '{0}' was not found in the manager")]
     WorkerNotFound(String),
     #[error("worker error while trying to scan")]
-    WorkerError(String),
+    WorkerError,
 }
 
 impl axum::response::IntoResponse for WorkerManagerError {
     fn into_response(self) -> axum::response::Response {
         let status = match &self {
             WorkerManagerError::WorkerNotFound(_) => StatusCode::NOT_FOUND,
-            WorkerManagerError::WorkerError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            WorkerManagerError::WorkerError => StatusCode::INTERNAL_SERVER_ERROR,
         };
         let payload = json!({
             "message": self.to_string(),
@@ -146,7 +146,10 @@ impl WorkerManagerService {
             .await;
         match result {
             Ok(data) => Ok(data),
-            Err(e) => Err(WorkerManagerError::WorkerError(e.to_string())),
+            Err(e) => {
+                log::error!("error while running scan one: {e}");
+                Err(WorkerManagerError::WorkerError)
+            }
         }
     }
     pub async fn run_job(&self, job_req: ManagerJobReq) -> Result<JobId, WorkerManagerError> {
