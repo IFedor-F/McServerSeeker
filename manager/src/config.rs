@@ -7,6 +7,7 @@ pub struct Config {
 
     pub workers: Vec<WorkerInfo>,
 
+    #[serde(default)]
     pub jobs: Vec<ScheduleData>,
 
     pub player_tracking: Option<PlayerTracking>,
