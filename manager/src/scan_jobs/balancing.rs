@@ -40,6 +40,7 @@ impl Balancer {
                 cancel_token.clone(),
             ));
         }
+        drop(tx_stats);
         let mut updates_vec = vec![JobProgress::default(); workers_count];
 
         loop {
