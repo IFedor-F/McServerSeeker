@@ -26,7 +26,7 @@ use utoipa::OpenApi;
         // scheduling
         scheduling::get_info,
         scheduling::get_all_info,
-        scheduling::upsert,
+        scheduling::add_new,
         scheduling::run,
         scheduling::delete,
         scheduling::stop,

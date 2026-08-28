@@ -116,16 +116,7 @@ impl Worker {
         let result = client.scan_one(pb_req).await?.into_inner();
         match result.server_data {
             None => Ok(None),
-            Some(data) => match data.try_into() {
-                Ok(data) => Ok(Some(data)),
-                Err(e) => {
-                    log::error!(
-                        "can't parse data from worker '{}': {e}",
-                        self.worker_info.name
-                    );
-                    Err(e.into())
-                }
-            },
+            Some(data) => Ok(Some(data.try_into()?)),
         }
     }
 

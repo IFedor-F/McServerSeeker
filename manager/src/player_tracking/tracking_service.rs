@@ -76,6 +76,7 @@ impl PlayerTrackingService {
                 if v.rows_affected() == 0 {
                     Err(PtsError::WebhookDuplicateName(info.webhook_name))
                 } else {
+                    log::info!("added new webhook '{}'", info.webhook_name);
                     Ok(())
                 }
             }
@@ -131,6 +132,7 @@ impl PlayerTrackingService {
             log::error!("database error while trying to delete webhook: {e}");
             Err(PtsError::SqlError)
         } else {
+            log::info!("delete webhook '{name}'");
             Ok(())
         }
     }
@@ -159,14 +161,16 @@ impl PlayerTrackingService {
         .await;
 
         match result {
-            Ok(data) => data
-                .ok_or(PtsError::WebhookNotFound(webhook_name))
-                .map(|_| ()),
+            Ok(data) => {
+                data.ok_or(PtsError::WebhookNotFound(webhook_name.clone()))?;
+                log::info!("added new track in webhook '{webhook_name}'");
+            }
             Err(e) => {
                 log::error!("database error while trying to add player track: {e}");
-                Err(PtsError::SqlError)
+                return Err(PtsError::SqlError);
             }
         }
+        Ok(())
     }
     pub async fn get_track_info(
         &self,
@@ -291,6 +295,7 @@ impl PlayerTrackingService {
         match result {
             Ok(result) => {
                 if result.webhook_exists {
+                    log::info!("remove track from webhook '{webhook_name}'");
                     Ok(())
                 } else {
                     Err(PtsError::WebhookNotFound(webhook_name))
@@ -305,6 +310,7 @@ impl PlayerTrackingService {
     pub async fn run_tracking(&self) {
         loop {
             tokio::time::sleep(self.interval).await;
+            log::debug!("starting search for tracking players in database");
             let records = sqlx::query!(
                 r#"
                 WITH ranked_records AS (
@@ -382,10 +388,7 @@ fn try_parse_url(url: &str) -> Result<Url, PtsError> {
     match url.parse() {
         Ok(v) => Ok(v),
         Err(e) => {
-            log::error!(
-                "invalid data in database, broken url: {}\nparse error: {e}",
-                url
-            );
+            log::error!("invalid data in database - broken url '{}': {e}", url);
             Err(PtsError::SqlError)
         }
     }

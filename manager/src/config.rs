@@ -8,7 +8,7 @@ pub struct Config {
     pub workers: Vec<WorkerInfo>,
 
     #[serde(default)]
-    pub jobs: Vec<ScheduleData>,
+    pub jobs: Vec<ConfigScheduleData>,
 
     pub player_tracking: Option<PlayerTracking>,
 }
@@ -24,7 +24,18 @@ pub struct General {
     pub ca_cert_pem_path: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize)]
+pub struct ConfigScheduleData {
+    #[serde(flatten)]
+    pub data: ScheduleData,
+    #[serde(default = "default_true")]
+    pub run: bool,
+}
+#[derive(Debug, Deserialize)]
 pub struct PlayerTracking {
     pub interval_secs: u64,
+}
+
+pub fn default_true() -> bool {
+    true
 }

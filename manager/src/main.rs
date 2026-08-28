@@ -5,12 +5,10 @@ pub mod player_tracking;
 pub mod scan_jobs;
 pub mod types;
 
-use crate::config::Config;
-use crate::database::DbQueueWorker;
+use crate::config::{Config, ConfigScheduleData};
 use crate::player_tracking::PlayerTrackingService;
 use crate::scan_jobs::schedule::ScheduleService;
 use crate::scan_jobs::{Worker, WorkerManagerService};
-use data_core::api::manager::ScheduleData;
 use sqlx::PgPool;
 use std::sync::Arc;
 use std::time::Duration;
@@ -104,19 +102,22 @@ async fn main() {
 
 async fn configure_scheduler(
     manager_service: Arc<WorkerManagerService>,
-    jobs: Vec<ScheduleData>,
+    jobs: Vec<ConfigScheduleData>,
 ) -> Arc<ScheduleService> {
     let scheduler = ScheduleService::new(manager_service);
     for job in jobs {
-        let job_name = job.name.clone();
+        let ConfigScheduleData { data, run } = job;
+        let job_name = data.name.clone();
         scheduler
-            .upsert_schedule(job)
+            .add_schedule(data)
             .await
             .expect("can't add schedule");
-        scheduler
-            .run_schedule(job_name)
-            .await
-            .expect("can't run schedule");
+        if run {
+            scheduler
+                .run_schedule(&job_name)
+                .await
+                .expect("can't run schedule");
+        }
     }
     Arc::new(scheduler)
 }
@@ -126,8 +127,7 @@ fn configure_manager(db_pool: &PgPool, config: &Config) -> Arc<WorkerManagerServ
     } else {
         None
     };
-    let db_queue_worker = DbQueueWorker::new(db_pool.clone());
-    let mut manager_service = WorkerManagerService::new(db_pool.clone(), db_queue_worker);
+    let mut manager_service = WorkerManagerService::new(db_pool.clone());
     for worker_info in config.workers.iter() {
         let mut endpoint =
             Endpoint::from_shared(worker_info.url.to_string()).expect("invalid worker endpoint");

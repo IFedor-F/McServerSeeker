@@ -10,9 +10,9 @@ use data_core::api::manager::{PlayerTrackIdent, PlayerTrackInfo, WebhookInfo};
 // Tracking endpoints
 #[utoipa::path(
     get,
-    path = "/api/tracking/{name}",
+    path = "/api/tracking/{webhook_name}",
     params(
-        ("name" = String, Path, description = "Name of the webhook")
+        ("webhook_name" = String, Path, description = "Name of the webhook")
     ),
     responses(
         (status = 200, description = "Webhook info", body = Vec<WebhookInfo>),
@@ -24,12 +24,12 @@ use data_core::api::manager::{PlayerTrackIdent, PlayerTrackInfo, WebhookInfo};
 )]
 pub async fn get_webhook_info(
     State(app): State<AppState>,
-    Path(name): Path<String>,
+    Path(webhook_name): Path<String>,
 ) -> Result<Json<WebhookInfo>, PlayerTrackingServiceError> {
     let s = app
         .player_tracking_service
         .ok_or(PlayerTrackingServiceError::Disabled)?;
-    s.get_webhook_info(name).await.map(Json)
+    s.get_webhook_info(webhook_name).await.map(Json)
 }
 
 #[utoipa::path(
@@ -75,9 +75,9 @@ pub async fn add_webhook(
 
 #[utoipa::path(
     delete,
-    path = "/api/tracking/{name}",
+    path = "/api/tracking/{webhook_name}",
     params(
-        ("name" = String, Path, description = "Name of the webhook")
+        ("webhook_name" = String, Path, description = "Name of the webhook")
     ),
     responses(
         (status = 200, description = "Webhook successfully removed"),
@@ -88,19 +88,19 @@ pub async fn add_webhook(
 )]
 pub async fn webhook_delete(
     State(app): State<AppState>,
-    Path(name): Path<String>,
+    Path(webhook_name): Path<String>,
 ) -> Result<(), PlayerTrackingServiceError> {
     app.player_tracking_service
         .ok_or(PlayerTrackingServiceError::Disabled)?
-        .delete_webhook(&name)
+        .delete_webhook(&webhook_name)
         .await
 }
 
 #[utoipa::path(
     get,
-    path = "/api/tracking/{name}/players/all",
+    path = "/api/tracking/{webhook_name}/players/all",
     params(
-        ("name" = String, Path, description = "Name of the webhook")
+        ("webhook_name" = String, Path, description = "Name of the webhook")
     ),
     responses(
         (status = 200, description = "List of player tracks info", body = Vec<PlayerTrackInfo>),
@@ -112,19 +112,19 @@ pub async fn webhook_delete(
 )]
 pub async fn webhook_all_players_info(
     State(app): State<AppState>,
-    Path(name): Path<String>,
+    Path(webhook_name): Path<String>,
 ) -> Result<Json<Vec<PlayerTrackInfo>>, PlayerTrackingServiceError> {
     let s = app
         .player_tracking_service
         .ok_or(PlayerTrackingServiceError::Disabled)?;
-    s.get_all_tracks_from_webhook(name).await.map(Json)
+    s.get_all_tracks_from_webhook(webhook_name).await.map(Json)
 }
 
 #[utoipa::path(
     get,
-    path = "/api/tracking/{name}/players",
+    path = "/api/tracking/{webhook_name}/players",
     params(
-        ("name" = String, Path, description = "Name of the webhook"),
+        ("webhook_name" = String, Path, description = "Name of the webhook"),
         PlayerTrackIdent
     ),
     responses(
@@ -148,9 +148,9 @@ pub async fn get_player_info(
 
 #[utoipa::path(
     post,
-    path = "/api/tracking/{name}/players",
+    path = "/api/tracking/{webhook_name}/players",
     params(
-        ("name" = String, Path, description = "Name of the webhook"),
+        ("webhook_name" = String, Path, description = "Name of the webhook"),
         PlayerTrackIdent
     ),
     responses(
@@ -174,7 +174,7 @@ pub async fn add_player(
 
 #[utoipa::path(
     delete,
-    path = "/api/tracking/{name}/players",
+    path = "/api/tracking/{webhook_name}/players",
     params(
         ("webhook_name" = String, Path, description = "Name of the webhook to delete from"),
         PlayerTrackIdent

@@ -17,6 +17,8 @@ use tokio::task::JoinHandle;
 pub enum ScheduleManagerError {
     #[error("can't find task with this name: {0}")]
     ScheduleNameNotFound(String),
+    #[error("task with name '{0}' already exists")]
+    DuplicateScheduleName(String),
     #[error(transparent)]
     #[serde(untagged)]
     WorkerManagerError(#[from] WorkerManagerError),
@@ -29,6 +31,7 @@ impl axum::response::IntoResponse for ScheduleManagerError {
         });
         let status_code = match self {
             ScheduleManagerError::ScheduleNameNotFound(_) => StatusCode::NOT_FOUND,
+            ScheduleManagerError::DuplicateScheduleName(_) => StatusCode::CONFLICT,
             ScheduleManagerError::WorkerManagerError(e) => e.into_response().status(),
         };
         (status_code, Json(payload)).into_response()
@@ -74,24 +77,26 @@ impl ScheduleService {
             schedules: Mutex::new(HashMap::new()),
         }
     }
-    pub async fn get_schedule(&self, name: String) -> Result<ScheduleData, ScheduleManagerError> {
+    pub async fn get_schedule(&self, name: &str) -> Result<ScheduleData, ScheduleManagerError> {
         let schedule = self.schedules.lock().await;
         schedule
-            .get(&name)
-            .ok_or(ScheduleManagerError::ScheduleNameNotFound(name))
+            .get(name)
+            .ok_or(ScheduleManagerError::ScheduleNameNotFound(name.to_string()))
             .map(|v| v.info.clone())
     }
     pub async fn get_all_schedules(&self) -> Vec<ScheduleData> {
         let schedule = self.schedules.lock().await;
         schedule.values().map(|v| v.info.clone()).collect()
     }
-    pub async fn upsert_schedule(
+    pub async fn add_schedule(
         &self,
         schedule_data: ScheduleData,
     ) -> Result<(), ScheduleManagerError> {
-        self.manager.validate_executor(&schedule_data.executor)?;
         let job_name = schedule_data.name.clone();
-        _ = self.remove_schedule(&job_name).await;
+        if self.schedules.lock().await.contains_key(&job_name) {
+            return Err(ScheduleManagerError::DuplicateScheduleName(job_name));
+        }
+        self.manager.validate_executor(&schedule_data.executor)?;
         log::info!("added new schedule {job_name}");
         self.schedules
             .lock()
@@ -99,12 +104,12 @@ impl ScheduleService {
             .insert(job_name, ScheduleJob::new(schedule_data));
         Ok(())
     }
-    pub async fn run_schedule(&self, name: String) -> Result<(), ScheduleManagerError> {
-        self.stop_schedule(&name).await?;
+    pub async fn run_schedule(&self, name: &str) -> Result<(), ScheduleManagerError> {
+        self.stop_schedule(name).await?;
         let mut schedules = self.schedules.lock().await;
         let schedule_job = schedules
-            .get_mut(&name)
-            .ok_or(ScheduleManagerError::ScheduleNameNotFound(name))?;
+            .get_mut(name)
+            .ok_or(ScheduleManagerError::ScheduleNameNotFound(name.to_string()))?;
 
         let info = schedule_job.info.clone();
         let manager_job_req = ManagerJobReq {
@@ -118,7 +123,7 @@ impl ScheduleService {
                 let manager = self.manager.clone();
                 tokio::spawn(async move {
                     loop {
-                        log::info!("[{}] starting job", info.name);
+                        log::info!("starting job '{}'", info.name);
                         match manager.run_job(manager_job_req.clone()).await {
                             Ok(job_id) => {
                                 while manager.is_job_active(job_id).await {
@@ -126,7 +131,7 @@ impl ScheduleService {
                                 }
                             }
                             Err(e) => {
-                                log::error!("[{}] failed to start job: {}", info.name, e);
+                                log::error!("failed to start job '{}': {}", info.name, e);
                                 tokio::time::sleep(Duration::from_secs(5)).await; // Prevent spamming errors
                             }
                         }
@@ -143,12 +148,12 @@ impl ScheduleService {
                         let now = Utc::now();
                         if let Some(next_run) = cron_schedule.upcoming(Utc).next() {
                             let delay = (next_run - now).to_std().unwrap_or(Duration::ZERO);
-                            log::info!("[{}] next job will be started at {}", info.name, next_run,);
+                            log::info!("job '{}' will be started at {}", info.name, next_run,);
                             tokio::time::sleep(delay).await;
 
-                            log::info!("[{}] running job", info.name);
+                            log::info!("running job '{}'", info.name);
                             if let Err(e) = manager.run_job(manager_job_req.clone()).await {
-                                log::error!("[{}] failed to spawn cron job: {}", info.name, e);
+                                log::error!("failed to spawn cron job '{}': {}", info.name, e);
                             }
                         } else {
                             break;
@@ -173,7 +178,6 @@ impl ScheduleService {
     }
     pub async fn stop_schedule(&self, job_name: &str) -> Result<(), ScheduleManagerError> {
         if let Some(job) = self.schedules.lock().await.get_mut(job_name) {
-            log::info!("stop schedule {job_name}");
             job.stop_if_running();
             Ok(())
         } else {

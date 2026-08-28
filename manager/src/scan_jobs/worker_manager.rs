@@ -57,10 +57,11 @@ pub struct WorkerManagerService {
 
 // helpers and init
 impl WorkerManagerService {
-    pub fn new(db_pool: PgPool, db_queue_worker: DbQueueWorker) -> Self {
+    pub fn new(db_pool: PgPool) -> Self {
         let (tx, rx) = mpsc::channel(256);
+        let queue_worker = DbQueueWorker::new(db_pool.clone());
         tokio::spawn(async move {
-            db_queue_worker.run(rx).await;
+            queue_worker.run(rx).await;
         });
         Self {
             next_job_id: AtomicU64::new(1),
@@ -149,6 +150,12 @@ impl WorkerManagerService {
                 select_less_loaded_worker(self.workers.clone().into_values())
             }
         };
+        log::info!(
+            "new one scan request: {}{}",
+            req.target,
+            req.port.map(|v| format!(":{v}")).unwrap_or("".to_string())
+        );
+
         let result = worker
             .execute_one_server(req.target, req.port, req.scan_method)
             .await;
@@ -214,15 +221,17 @@ impl WorkerManagerService {
         let job_id = self.insert_job(job_task).await;
         let shared_jobs = self.tasks.clone();
 
-        let job_id_cloned = job_id.clone();
         tokio::spawn(async move {
+            log::info!("spawn new job with id {}", job_id.0);
             match future.await {
-                Ok(_) => {}
+                Ok(_) => {
+                    log::info!("finish job with id {}", job_id.0)
+                }
                 Err(e) => {
-                    log::error!("error while running job: {e}")
+                    log::error!("error while running job with id {}: {e}", job_id.0)
                 }
             };
-            shared_jobs.write().await.remove(&job_id_cloned);
+            shared_jobs.write().await.remove(&job_id);
         });
 
         Ok(job_id)

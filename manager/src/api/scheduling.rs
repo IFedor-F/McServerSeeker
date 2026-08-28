@@ -24,7 +24,7 @@ pub async fn get_info(
     State(app): State<AppState>,
     Path(name): Path<String>,
 ) -> Result<Json<ScheduleData>, ScheduleManagerError> {
-    app.schedule_service.get_schedule(name).await.map(Json)
+    app.schedule_service.get_schedule(&name).await.map(Json)
 }
 
 // Scheduling endpoints
@@ -42,20 +42,22 @@ pub async fn get_all_info(State(app): State<AppState>) -> Json<Vec<ScheduleData>
 }
 
 #[utoipa::path(
-    put,
+    post,
     path = "/api/schedules",
     request_body = ScheduleData,
     responses(
         (status = 200, description = "Schedule successfully added or updated"),
-        (status = 404, description = "Worker in job request doesn't exist", body = ScheduleManagerError)
+        (status = 404, description = "Worker in job request doesn't exist", body = ScheduleManagerError),
+        (status = 409, description = "Work with this name alreadt exists", body = ScheduleManagerError),
+        (status = 500, description = "Internal server error", body = ScheduleManagerError)
     ),
     tag = "schedule"
 )]
-pub async fn upsert(
+pub async fn add_new(
     State(app): State<AppState>,
     Json(schedule_job_req): Json<ScheduleData>,
 ) -> Result<(), ScheduleManagerError> {
-    app.schedule_service.upsert_schedule(schedule_job_req).await
+    app.schedule_service.add_schedule(schedule_job_req).await
 }
 
 #[utoipa::path(
@@ -74,7 +76,7 @@ pub async fn run(
     State(app): State<AppState>,
     Path(name): Path<String>,
 ) -> Result<(), ScheduleManagerError> {
-    app.schedule_service.run_schedule(name).await
+    app.schedule_service.run_schedule(&name).await
 }
 
 #[utoipa::path(

@@ -7,7 +7,7 @@ use crate::player_tracking::PlayerTrackingService;
 use crate::scan_jobs::WorkerManagerService;
 use crate::scan_jobs::schedule::ScheduleService;
 use axum::Router;
-use axum::routing::{delete, get, post, put};
+use axum::routing::{delete, get, post};
 use open_api::ApiDoc;
 use serde_json::json;
 use std::sync::Arc;
@@ -53,26 +53,35 @@ pub fn setup_router(
         // scheduling
         .route("/api/schedules", get(scheduling::get_all_info))
         .route("/api/schedules/{name}", get(scheduling::get_info))
-        .route("/api/schedules", put(scheduling::upsert))
+        .route("/api/schedules", post(scheduling::add_new))
         .route("/api/schedules/{name}/run", post(scheduling::run))
         .route("/api/schedules/{name}/delete", delete(scheduling::delete))
         .route("/api/schedules/{name}/stop", post(scheduling::stop))
         // tracking
         .route("/api/tracking", get(tracking::all_webhooks_info))
-        .route("/api/tracking/{name}", get(tracking::get_webhook_info))
-        .route("/api/tracking", post(tracking::add_webhook))
-        .route("/api/tracking/{name}", delete(tracking::webhook_delete))
         .route(
-            "/api/tracking/{name}/players/all",
+            "/api/tracking/{webhook_name}",
+            get(tracking::get_webhook_info),
+        )
+        .route("/api/tracking", post(tracking::add_webhook))
+        .route(
+            "/api/tracking/{webhook_name}",
+            delete(tracking::webhook_delete),
+        )
+        .route(
+            "/api/tracking/{webhook_name}/players/all",
             get(tracking::webhook_all_players_info),
         )
         .route(
-            "/api/tracking/{name}/players",
+            "/api/tracking/{webhook_name}/players",
             get(tracking::get_player_info),
         )
-        .route("/api/tracking/{name}/players", post(tracking::add_player))
         .route(
-            "/api/tracking/{name}/players",
+            "/api/tracking/{webhook_name}/players",
+            post(tracking::add_player),
+        )
+        .route(
+            "/api/tracking/{webhook_name}/players",
             delete(tracking::delete_player_record),
         )
         .with_state(app_state)
