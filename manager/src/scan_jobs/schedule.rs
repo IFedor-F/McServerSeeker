@@ -97,7 +97,7 @@ impl ScheduleService {
             return Err(ScheduleManagerError::DuplicateScheduleName(job_name));
         }
         self.manager.validate_executor(&schedule_data.executor)?;
-        log::info!("added new schedule {job_name}");
+        log::info!("added new schedule '{job_name}'");
         self.schedules
             .lock()
             .await

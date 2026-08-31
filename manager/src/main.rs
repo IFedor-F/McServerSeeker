@@ -48,13 +48,13 @@ async fn main() {
     let manager_service = configure_manager(&db_pool, &config);
 
     // scheduler
-    let scheduler = configure_scheduler(manager_service.clone(), config.jobs).await;
+    let scheduler = configure_scheduler(manager_service.clone(), &config).await;
 
     // tracking
-    let player_tracking_service = if let Some(t) = config.player_tracking {
+    let player_tracking_service = if config.player_tracking.enabled {
         let s = Arc::new(PlayerTrackingService::new(
             db_pool.clone(),
-            Duration::from_secs(t.interval_secs),
+            Duration::from_secs(config.player_tracking.interval_secs),
         ));
         let cloned_s = s.clone();
         join_set.spawn(async move {
@@ -66,14 +66,21 @@ async fn main() {
     };
 
     // api
-    if let Some(addr) = config.general.bind_address {
+    if config.api_settings.enabled {
+        let bind_addr = env::var("BIND_ADDR")
+            .ok()
+            .or(config.api_settings.bind_address.clone())
+            .expect("'BIND_ADDR' is expected in env or 'bind_addr' in config 'api' section");
+
         let app = api::setup_router(
             manager_service.clone(),
             scheduler.clone(),
             player_tracking_service,
+            configure_api_auth(&config),
         );
-        log::info!("API Server running on {addr}");
-        let listener = tokio::net::TcpListener::bind(addr)
+
+        log::info!("API Server running on {}", bind_addr);
+        let listener = tokio::net::TcpListener::bind(bind_addr)
             .await
             .expect("can't bind port");
 
@@ -83,7 +90,7 @@ async fn main() {
     }
 
     tokio::select! {
-        res = join_set.join_next() => {
+        res = join_set.join_next(), if !join_set.is_empty() => {
             match res {
                 Some(Ok(_)) => unreachable!(),
                 None => unreachable!(),
@@ -102,17 +109,17 @@ async fn main() {
 
 async fn configure_scheduler(
     manager_service: Arc<WorkerManagerService>,
-    jobs: Vec<ConfigScheduleData>,
+    config: &Config,
 ) -> Arc<ScheduleService> {
     let scheduler = ScheduleService::new(manager_service);
-    for job in jobs {
-        let ConfigScheduleData { data, run } = job;
+    for job in config.jobs.iter().cloned() {
+        let ConfigScheduleData { data, run_on_load } = job;
         let job_name = data.name.clone();
         scheduler
             .add_schedule(data)
             .await
             .expect("can't add schedule");
-        if run {
+        if run_on_load {
             scheduler
                 .run_schedule(&job_name)
                 .await
@@ -121,9 +128,10 @@ async fn configure_scheduler(
     }
     Arc::new(scheduler)
 }
+
 fn configure_manager(db_pool: &PgPool, config: &Config) -> Arc<WorkerManagerService> {
     let tls_config = if config.general.use_tls_for_workers {
-        Some(configure_tls(&config.general))
+        Some(configure_tls(&config))
     } else {
         None
     };
@@ -144,19 +152,21 @@ fn configure_manager(db_pool: &PgPool, config: &Config) -> Arc<WorkerManagerServ
     Arc::new(manager_service)
 }
 
-fn configure_tls(config: &config::General) -> ClientTlsConfig {
+fn configure_tls(config: &Config) -> ClientTlsConfig {
     let cert_key_path = env::var("MANAGER_CERT_KEY_PATH")
         .ok()
-        .or(config.manager_cert_key_path.clone())
-        .expect("env 'MANAGER_CERT_KEY_PATH' or 'manager_cert_key_path' in manager config is expected to run program");
+        .or(config.general.manager_cert_key_path.clone())
+        .expect("env 'MANAGER_CERT_KEY_PATH' or 'manager_cert_key_path' in config 'general' section is expected");
     let cert_pem_path = env::var("MANAGER_CERT_PEM_PATH")
         .ok()
-        .or(config.manager_cert_pem_path.clone())
-        .expect("env 'MANAGER_CERT_PEM_PATH' or 'manager_cert_pem_path' in manager config is expected to run program");
+        .or(config.general.manager_cert_pem_path.clone())
+        .expect("env 'MANAGER_CERT_PEM_PATH' or 'manager_cert_pem_path' in config 'general' section is expected");
     let ca_cert_path = env::var("CA_CERT_PEM_PATH")
         .ok()
-        .or(config.ca_cert_pem_path.clone())
-        .expect("env 'CA_CERT_PEM_PATH' or 'ca_cert_pem_path' in manager config is expected to run program");
+        .or(config.general.ca_cert_pem_path.clone())
+        .expect(
+            "env 'CA_CERT_PEM_PATH' or 'ca_cert_pem_path' in config 'general' section is expected",
+        );
 
     let cert_key = fs::read_to_string(cert_key_path).expect("can't read manager cert key");
     let cert_pem = fs::read_to_string(cert_pem_path).expect("can't read manager cert pem");
@@ -164,4 +174,31 @@ fn configure_tls(config: &config::General) -> ClientTlsConfig {
     let identity = Identity::from_pem(cert_pem, cert_key);
     let ca = Certificate::from_pem(cert_ca);
     ClientTlsConfig::new().ca_certificate(ca).identity(identity)
+}
+
+fn configure_api_auth(config: &Config) -> api::AuthSettings {
+    let use_api_token: Option<bool> = env::var("USE_API_TOKEN")
+        .ok()
+        .map(|v| v.parse().expect("can't parse value for 'USE_API_TOKEN'"))
+        .or(config.api_settings.use_api_token);
+    if use_api_token.is_none() {
+        log::warn!(
+            "can't find 'USE_API_TOKEN' in env and 'use_api_tokin' in config 'api' section, \
+            default value is 'false'. Set this explicitly"
+        )
+    }
+    let use_api_token = use_api_token.unwrap_or(false);
+    match use_api_token {
+        false => api::AuthSettings::new(None),
+        true => {
+            let api_token = env::var("API_TOKEN")
+                .ok()
+                .or(config.api_settings.api_token.clone())
+                .expect(
+                    "If 'USE_API_TOKEN' in env or 'use_api_token' in config 'api' section is true, \
+                'API_TOKEN' env or 'api_token' in config 'api' section is expected",
+                );
+            api::AuthSettings::new(Some(api_token))
+        }
+    }
 }

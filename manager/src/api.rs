@@ -6,8 +6,12 @@ mod tracking;
 use crate::player_tracking::PlayerTrackingService;
 use crate::scan_jobs::WorkerManagerService;
 use crate::scan_jobs::schedule::ScheduleService;
-use axum::Router;
+use axum::extract::{Request, State};
+use axum::http::StatusCode;
+use axum::middleware::Next;
+use axum::response::IntoResponse;
 use axum::routing::{delete, get, post};
+use axum::{Router, middleware};
 use open_api::ApiDoc;
 use serde_json::json;
 use std::sync::Arc;
@@ -18,17 +22,50 @@ struct AppState {
     manager: Arc<WorkerManagerService>,
     schedule_service: Arc<ScheduleService>,
     player_tracking_service: Option<Arc<PlayerTrackingService>>,
+    auth_settings: AuthSettings,
+}
+#[derive(Clone)]
+pub struct AuthSettings {
+    token: Option<String>,
+}
+impl AuthSettings {
+    pub fn new(token: Option<String>) -> AuthSettings {
+        Self { token }
+    }
+}
+
+async fn auth_middleware(
+    State(state): State<AppState>,
+    req: Request,
+    next: Next,
+) -> Result<impl IntoResponse, StatusCode> {
+    match state.auth_settings.token {
+        None => Ok(next.run(req).await),
+        Some(token) => {
+            let expected_token = format!("Bearer {token}");
+            if let Some(auth_header) = req.headers().get(axum::http::header::AUTHORIZATION) {
+                if let Ok(auth_str) = auth_header.to_str() {
+                    if auth_str == expected_token {
+                        return Ok(next.run(req).await);
+                    }
+                }
+            }
+            Err(StatusCode::UNAUTHORIZED)
+        }
+    }
 }
 
 pub fn setup_router(
     manager: Arc<WorkerManagerService>,
     schedule_service: Arc<ScheduleService>,
     player_tracking_service: Option<Arc<PlayerTrackingService>>,
+    auth_settings: AuthSettings,
 ) -> Router {
     let app_state = AppState {
         manager,
         schedule_service,
         player_tracking_service,
+        auth_settings,
     };
     let openapi = ApiDoc::openapi();
     let configuration = json!({
@@ -84,6 +121,10 @@ pub fn setup_router(
             "/api/tracking/{webhook_name}/players",
             delete(tracking::delete_player_record),
         )
+        .layer(middleware::from_fn_with_state(
+            app_state.clone(),
+            auth_middleware,
+        ))
         .with_state(app_state)
         .merge(scalar_route)
         .merge(asset_route)

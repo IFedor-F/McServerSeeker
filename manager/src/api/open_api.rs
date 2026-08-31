@@ -9,11 +9,29 @@ use data_core::api::manager::{
     JobId, JobProgress, ManagerJobInfo, ManagerJobReq, ManagerScanOneReq, McServerData,
     PlayerTrackInfo, ScheduleData, WebhookInfo, WorkerStatus,
 };
-use utoipa::OpenApi;
+use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
+use utoipa::{Modify, OpenApi};
 
+struct SecurityAddon;
+
+impl Modify for SecurityAddon {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        // Ensure components exist and add the security scheme
+        let components = openapi.components.get_or_insert_with(Default::default);
+
+        components.add_security_scheme(
+            "bearer_auth",
+            SecurityScheme::Http(HttpBuilder::new().scheme(HttpAuthScheme::Bearer).build()),
+        );
+    }
+}
 // OpenAPI documentation
 #[derive(OpenApi)]
 #[openapi(
+    modifiers(&SecurityAddon),
+    security(
+        ("bearer_auth" = [])
+    ),
     paths(
         // manager
         manager::scan_one,
