@@ -112,9 +112,10 @@ impl ScheduleService {
             .ok_or(ScheduleManagerError::ScheduleNameNotFound(name.to_string()))?;
 
         let info = schedule_job.info.clone();
+        let name = info.name.clone();
         let manager_job_req = ManagerJobReq {
-            name: info.name.clone(),
-            executor: info.executor.clone(),
+            name: info.name,
+            executor: info.executor,
             task: info.task,
         };
 
@@ -123,15 +124,13 @@ impl ScheduleService {
                 let manager = self.manager.clone();
                 tokio::spawn(async move {
                     loop {
-                        log::info!("starting job '{}'", info.name);
+                        log::info!("starting job '{name}'");
                         match manager.run_job(manager_job_req.clone()).await {
                             Ok(job_id) => {
-                                while manager.is_job_active(job_id).await {
-                                    tokio::time::sleep(Duration::from_secs(5)).await;
-                                }
+                                manager.wait_for_job(job_id).await; //  waiting for the work to be completed
                             }
                             Err(e) => {
-                                log::error!("failed to start job '{}': {}", info.name, e);
+                                log::error!("failed to start job '{name}': {e}");
                                 tokio::time::sleep(Duration::from_secs(5)).await; // Prevent spamming errors
                             }
                         }
@@ -148,12 +147,12 @@ impl ScheduleService {
                         let now = Utc::now();
                         if let Some(next_run) = cron_schedule.upcoming(Utc).next() {
                             let delay = (next_run - now).to_std().unwrap_or(Duration::ZERO);
-                            log::info!("job '{}' will be started at {}", info.name, next_run,);
+                            log::info!("job '{name}' will be started at {next_run}");
                             tokio::time::sleep(delay).await;
 
-                            log::info!("running job '{}'", info.name);
+                            log::info!("running job '{name}'");
                             if let Err(e) = manager.run_job(manager_job_req.clone()).await {
-                                log::error!("failed to spawn cron job '{}': {}", info.name, e);
+                                log::error!("failed to spawn cron job '{name}': {e}");
                             }
                         } else {
                             break;

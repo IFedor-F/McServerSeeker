@@ -1,4 +1,4 @@
-use super::{ManagerTask, Worker};
+use super::Worker;
 use crate::database;
 use crate::database::{DbQueueWorker, ParsedForSqlServerData};
 use crate::scan_jobs::balancing::Balancer;
@@ -16,7 +16,7 @@ use sqlx::PgPool;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use tokio::sync::{RwLock, mpsc};
+use tokio::sync::{Notify, RwLock, mpsc};
 use tokio_util::sync::CancellationToken;
 
 #[derive(thiserror::Error, Debug, Serialize, Deserialize, utoipa::ToSchema)]
@@ -29,6 +29,24 @@ pub enum WorkerManagerError {
     WorkerError,
     #[error("database error")]
     DatabaseError,
+}
+
+#[derive(Debug, Clone)]
+struct InnerManagerTask {
+    req: ManagerJobReq,
+    progress: Arc<RwLock<JobProgress>>,
+    finish_notify: Arc<Notify>,
+    cancellation_token: CancellationToken,
+}
+impl InnerManagerTask {
+    fn new(req: ManagerJobReq) -> Self {
+        Self {
+            req,
+            progress: Arc::new(RwLock::new(JobProgress::NoData)),
+            finish_notify: Arc::new(Notify::new()),
+            cancellation_token: CancellationToken::new(),
+        }
+    }
 }
 
 impl axum::response::IntoResponse for WorkerManagerError {
@@ -49,7 +67,7 @@ impl axum::response::IntoResponse for WorkerManagerError {
 #[derive(Debug)]
 pub struct WorkerManagerService {
     next_job_id: AtomicU64,
-    tasks: Arc<RwLock<HashMap<JobId, ManagerTask>>>,
+    tasks: Arc<RwLock<HashMap<JobId, InnerManagerTask>>>,
     workers: HashMap<String, Arc<Worker>>,
     db_pool: PgPool,
     db_queue: mpsc::Sender<ParsedForSqlServerData>,
@@ -76,7 +94,7 @@ impl WorkerManagerService {
             .insert(worker.worker_info.name.clone(), Arc::new(worker));
     }
 
-    async fn insert_job(&self, job_task: ManagerTask) -> JobId {
+    async fn insert_job(&self, job_task: InnerManagerTask) -> JobId {
         let job_id = JobId(self.next_job_id.fetch_add(1, Ordering::SeqCst));
         self.tasks.write().await.insert(job_id, job_task);
         job_id
@@ -171,7 +189,7 @@ impl WorkerManagerService {
         &self,
         manager_job_req: ManagerJobReq,
     ) -> Result<JobId, WorkerManagerError> {
-        let job_task = ManagerTask::new(manager_job_req);
+        let job_task = InnerManagerTask::new(manager_job_req);
         let worker_req = match job_task.req.task.clone() {
             TaskInfo::Discover(req) => WorkerJobReq::Discover(req.into()),
             TaskInfo::ScanSelected(req) => WorkerJobReq::ScanSelected(req.into()),
@@ -218,6 +236,8 @@ impl WorkerManagerService {
                 balancer.run_work(c_token, pr, worker_req, db_q).boxed()
             }
         };
+        let finish_notify = job_task.finish_notify.clone();
+
         let job_id = self.insert_job(job_task).await;
         let shared_jobs = self.tasks.clone();
 
@@ -225,20 +245,20 @@ impl WorkerManagerService {
             log::info!("spawn new job with id {}", job_id.0);
             match future.await {
                 Ok(_) => {
-                    log::info!("finish job with id {}", job_id.0)
+                    log::info!("finish job with id {job_id}")
                 }
                 Err(e) => {
-                    log::error!("error while running job with id {}: {e}", job_id.0)
+                    log::error!("error while running job with id {job_id}: {e}")
                 }
             };
             shared_jobs.write().await.remove(&job_id);
+            finish_notify.notify_waiters();
         });
-
         Ok(job_id)
     }
     pub async fn cancel_job(&self, job_id: JobId) {
         if let Some(task) = self.tasks.read().await.get(&job_id) {
-            log::info!("cancel job with id {}", job_id.0);
+            log::info!("cancel job with id {job_id}");
             task.cancellation_token.cancel()
         }
     }
@@ -282,9 +302,21 @@ impl WorkerManagerService {
         results
     }
 
-    pub async fn is_job_active(&self, job_id: JobId) -> bool {
-        self.tasks.read().await.get(&job_id).is_some()
+    pub async fn wait_for_job(&self, job_id: JobId) {
+        let value = self
+            .tasks
+            .read()
+            .await
+            .get(&job_id)
+            .map(|v| v.finish_notify.clone());
+
+        if let Some(notify) = value {
+            notify.notified().await
+        } else {
+            return;
+        }
     }
+
     pub fn get_workers(&self) -> Vec<WorkerStatus> {
         self.workers
             .iter()
