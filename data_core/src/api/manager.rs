@@ -8,6 +8,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 #[allow(unused_imports)]
 use serde_json::json;
 use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
 use std::net::IpAddr;
 use url::Url;
 use utoipa::{IntoParams, ToSchema};
@@ -27,7 +28,6 @@ where
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ScheduleData {
-    #[serde(deserialize_with = "deserialize_non_empty_string")]
     pub name: String,
     pub executor: JobExecutor,
     #[schema(value_type = String, examples("always", "30 10 * * *"))]
@@ -41,6 +41,11 @@ pub struct ScheduleData {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub struct JobId(pub u64);
+impl Display for JobId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
