@@ -5,13 +5,15 @@ use ipnetwork::IpNetwork;
 pub use scanner::ScanMethod;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize};
+
 #[allow(unused_imports)]
 use serde_json::json;
+
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::net::IpAddr;
 use url::Url;
-use utoipa::{IntoParams, ToSchema};
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 fn deserialize_non_empty_string<'de, D>(deserializer: D) -> Result<String, D::Error>
@@ -232,32 +234,4 @@ pub struct WebhookInfo {
     pub url: Url,
     #[serde(deserialize_with = "deserialize_non_empty_string")]
     pub webhook_name: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, IntoParams)]
-#[serde(deny_unknown_fields, try_from = "PlayerTrackIdentRaw")]
-pub struct PlayerTrackIdent {
-    pub name: Option<String>,
-    pub uuid: Option<Uuid>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct PlayerTrackIdentRaw {
-    name: Option<String>,
-    uuid: Option<Uuid>,
-}
-impl TryFrom<PlayerTrackIdentRaw> for PlayerTrackIdent {
-    type Error = &'static str;
-
-    fn try_from(raw: PlayerTrackIdentRaw) -> Result<Self, Self::Error> {
-        if raw.name.is_none() && raw.uuid.is_none() {
-            return Err("At least one of 'name' or 'uuid' must be provided");
-        }
-
-        Ok(Self {
-            name: raw.name,
-            uuid: raw.uuid,
-        })
-    }
 }

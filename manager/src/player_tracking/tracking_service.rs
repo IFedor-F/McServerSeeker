@@ -1,7 +1,7 @@
 use super::{FoundedPlayer, WebHook};
 use axum::Json;
 use axum::http::StatusCode;
-use data_core::api::manager::{PlayerTrackIdent, PlayerTrackInfo, WebhookInfo};
+use data_core::api::manager::{PlayerTrackInfo, WebhookInfo};
 use data_core::sql;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -19,9 +19,9 @@ pub enum PlayerTrackingServiceError {
     #[error("service is disabled")]
     Disabled,
     #[error("duplicate webhook name: {0}")]
-    WebhookDuplicateName(String),
-    #[error("can't find webhook with this name: {0}")]
-    WebhookNotFound(String),
+    WebhookDuplicateUrl(Url),
+    #[error("can't find webhook with this url: {0}")]
+    WebhookNotFound(Url),
     #[error("can't find player with this data")]
     PlayerRecordNotFound {
         name: Option<String>,
@@ -35,7 +35,7 @@ impl axum::response::IntoResponse for PtsError {
     fn into_response(self) -> axum::response::Response {
         let status = match &self {
             PtsError::Disabled => StatusCode::SERVICE_UNAVAILABLE,
-            PtsError::WebhookDuplicateName(_) => StatusCode::CONFLICT,
+            PtsError::WebhookDuplicateUrl(_) => StatusCode::CONFLICT,
             PtsError::SqlError => StatusCode::INTERNAL_SERVER_ERROR,
             PtsError::PlayerRecordNotFound { .. } => StatusCode::NOT_FOUND,
             PtsError::WebhookNotFound(_) => StatusCode::NOT_FOUND,
@@ -64,7 +64,7 @@ impl PlayerTrackingService {
         let result = sqlx::query!(
             r#"
             INSERT INTO analytics.webhooks (name, url) values ($1, $2)
-            ON CONFLICT (name) DO NOTHING
+            ON CONFLICT (url) DO NOTHING
             "#,
             info.webhook_name,
             info.url.as_str()
@@ -74,9 +74,9 @@ impl PlayerTrackingService {
         match result {
             Ok(v) => {
                 if v.rows_affected() == 0 {
-                    Err(PtsError::WebhookDuplicateName(info.webhook_name))
+                    Err(PtsError::WebhookDuplicateUrl(info.url))
                 } else {
-                    log::info!("added new webhook '{}'", info.webhook_name);
+                    log::debug!("added new webhook '{}'", info.url);
                     Ok(())
                 }
             }
@@ -84,16 +84,16 @@ impl PlayerTrackingService {
         }
     }
 
-    pub async fn get_webhook_info(&self, name: String) -> Result<WebhookInfo, PtsError> {
+    pub async fn get_webhook_info(&self, url: &Url) -> Result<WebhookInfo, PtsError> {
         let data: Option<_> = sqlx::query_as!(
             sql::analytics::Webhook,
-            "SELECT * FROM analytics.webhooks WHERE name = $1",
-            &name
+            "SELECT * FROM analytics.webhooks WHERE url = $1",
+            url.as_str()
         )
         .fetch_optional(&self.db_pool)
         .await
         .map_err(|_| PtsError::SqlError)?;
-        let data = data.ok_or(PtsError::WebhookNotFound(name))?;
+        let data = data.ok_or(PtsError::WebhookNotFound(url.clone()))?;
 
         Ok(WebhookInfo {
             url: try_parse_url(&data.url)?,
@@ -124,27 +124,31 @@ impl PlayerTrackingService {
         }
     }
 
-    pub async fn delete_webhook(&self, name: &str) -> Result<(), PtsError> {
-        let result = sqlx::query!("DELETE FROM analytics.webhooks WHERE name = $1", name)
-            .execute(&self.db_pool)
-            .await;
+    pub async fn delete_webhook(&self, url: &Url) -> Result<(), PtsError> {
+        let result = sqlx::query!(
+            "DELETE FROM analytics.webhooks WHERE url = $1",
+            url.as_str()
+        )
+        .execute(&self.db_pool)
+        .await;
         if let Err(e) = result {
             log::error!("database error while trying to delete webhook: {e}");
             Err(PtsError::SqlError)
         } else {
-            log::info!("delete webhook '{name}'");
+            log::debug!("delete webhook '{url}'");
             Ok(())
         }
     }
     pub async fn add_player_track(
         &self,
-        webhook_name: String,
-        track: PlayerTrackIdent,
+        url: &Url,
+        name: Option<String>,
+        uuid: Option<Uuid>,
     ) -> Result<(), PtsError> {
         let result = sqlx::query!(
             r#"
             WITH w_id AS (
-                SELECT id FROM analytics.webhooks WHERE name = $3
+                SELECT id FROM analytics.webhooks WHERE url = $3
             ),
             insert AS (
                 INSERT INTO analytics.player_tracks (name, uuid, webhook_id)
@@ -153,17 +157,17 @@ impl PlayerTrackingService {
             )
             SELECT id FROM w_id
             "#,
-            track.name,
-            track.uuid,
-            &webhook_name
+            name,
+            uuid,
+            url.as_str()
         )
         .fetch_optional(&self.db_pool)
         .await;
 
         match result {
             Ok(data) => {
-                data.ok_or(PtsError::WebhookNotFound(webhook_name.clone()))?;
-                log::info!("added new track in webhook '{webhook_name}'");
+                data.ok_or(PtsError::WebhookNotFound(url.clone()))?;
+                log::debug!("added new track in webhook '{url}'");
             }
             Err(e) => {
                 log::error!("database error while trying to add player track: {e}");
@@ -174,11 +178,10 @@ impl PlayerTrackingService {
     }
     pub async fn get_track_info(
         &self,
-        webhook_name: String,
-        track: PlayerTrackIdent,
+        url: &Url,
+        name: Option<String>,
+        uuid: Option<Uuid>,
     ) -> Result<PlayerTrackInfo, PtsError> {
-        let PlayerTrackIdent { name, uuid } = track;
-
         let result = sqlx::query!(
             r#"
             SELECT t.name, t.uuid, t.last_send, s.ip, s.port
@@ -189,11 +192,11 @@ impl PlayerTrackingService {
                AND t.uuid IS NOT DISTINCT FROM $2
             LEFT JOIN data.servers s
                 ON t.last_server_id = s.id
-            WHERE w.name = $3
+            WHERE w.url = $3
             "#,
             &name as &Option<String>,
             &uuid as &Option<Uuid>,
-            &webhook_name
+            url.as_str()
         )
         .fetch_optional(&self.db_pool)
         .await;
@@ -213,7 +216,7 @@ impl PlayerTrackingService {
                     })
                 }
             }
-            Ok(None) => Err(PtsError::WebhookNotFound(webhook_name)),
+            Ok(None) => Err(PtsError::WebhookNotFound(url.clone())),
             Err(e) => {
                 log::error!("database error while trying to get track info: {e}");
                 Err(PtsError::SqlError)
@@ -223,7 +226,7 @@ impl PlayerTrackingService {
 
     pub async fn get_all_tracks_from_webhook(
         &self,
-        webhook_name: String,
+        url: &Url,
     ) -> Result<Vec<PlayerTrackInfo>, PtsError> {
         let result: Result<Vec<_>, _> = sqlx::query!(
             r#"
@@ -231,9 +234,9 @@ impl PlayerTrackingService {
             FROM analytics.webhooks w
                 LEFT JOIN analytics.player_tracks t ON t.webhook_id = w.id
                 LEFT JOIN data.servers s on t.last_server_id = s.id
-            WHERE w.name = $1
+            WHERE w.url = $1
             "#,
-            &webhook_name
+            url.as_str()
         )
         .fetch_all(&self.db_pool)
         .await;
@@ -247,7 +250,7 @@ impl PlayerTrackingService {
 
         // sql query will return no rows if no such webhook_name in table
         if tracks.is_empty() {
-            return Err(PtsError::WebhookNotFound(webhook_name));
+            return Err(PtsError::WebhookNotFound(url.clone()));
         }
         // if webhook_name exists, but no records in player_records table, will be one row with nulls
         if tracks.len() == 1 {
@@ -268,13 +271,14 @@ impl PlayerTrackingService {
     }
     pub async fn remove_track(
         &self,
-        webhook_name: String,
-        track: PlayerTrackIdent,
+        url: &Url,
+        name: Option<String>,
+        uuid: Option<Uuid>,
     ) -> Result<(), PtsError> {
         let result = sqlx::query!(
             r#"
             WITH target_webhook AS (
-                SELECT id FROM analytics.webhooks WHERE name = $3
+                SELECT id FROM analytics.webhooks WHERE url = $3
             ),
             deleted_track AS (
                 DELETE FROM analytics.player_tracks
@@ -285,9 +289,9 @@ impl PlayerTrackingService {
             )
             SELECT EXISTS(SELECT 1 FROM target_webhook) AS "webhook_exists!"
             "#,
-            track.name,
-            track.uuid,
-            webhook_name
+            name,
+            uuid,
+            url.as_str()
         )
         .fetch_one(&self.db_pool)
         .await;
@@ -295,10 +299,10 @@ impl PlayerTrackingService {
         match result {
             Ok(result) => {
                 if result.webhook_exists {
-                    log::info!("remove track from webhook '{webhook_name}'");
+                    log::debug!("remove track from webhook '{url}'");
                     Ok(())
                 } else {
-                    Err(PtsError::WebhookNotFound(webhook_name))
+                    Err(PtsError::WebhookNotFound(url.clone()))
                 }
             }
             Err(e) => {

@@ -95,30 +95,18 @@ pub fn setup_router(
         .route("/api/schedules/{name}/delete", delete(scheduling::delete))
         .route("/api/schedules/{name}/stop", post(scheduling::stop))
         // tracking
-        .route("/api/tracking", get(tracking::all_webhooks_info))
-        .route(
-            "/api/tracking/{webhook_name}",
-            get(tracking::get_webhook_info),
-        )
+        .route("/api/tracking/all", get(tracking::all_webhooks_info))
+        .route("/api/tracking", get(tracking::get_webhook_info))
         .route("/api/tracking", post(tracking::add_webhook))
+        .route("/api/tracking", delete(tracking::webhook_delete))
         .route(
-            "/api/tracking/{webhook_name}",
-            delete(tracking::webhook_delete),
-        )
-        .route(
-            "/api/tracking/{webhook_name}/players/all",
+            "/api/tracking/players/all",
             get(tracking::webhook_all_players_info),
         )
+        .route("/api/tracking/players", get(tracking::get_player_info))
+        .route("/api/tracking/players", post(tracking::add_player))
         .route(
-            "/api/tracking/{webhook_name}/players",
-            get(tracking::get_player_info),
-        )
-        .route(
-            "/api/tracking/{webhook_name}/players",
-            post(tracking::add_player),
-        )
-        .route(
-            "/api/tracking/{webhook_name}/players",
+            "/api/tracking/players",
             delete(tracking::delete_player_record),
         )
         .layer(middleware::from_fn_with_state(

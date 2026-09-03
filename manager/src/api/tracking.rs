@@ -1,18 +1,60 @@
 use crate::api::AppState;
 use crate::player_tracking::tracking_service::PlayerTrackingServiceError;
 use axum::extract::Query;
-use axum::{
-    Json,
-    extract::{Path, State},
-};
-use data_core::api::manager::{PlayerTrackIdent, PlayerTrackInfo, WebhookInfo};
+use axum::{Json, extract::State};
+use data_core::api::manager::{PlayerTrackInfo, WebhookInfo};
+use serde::{Deserialize, Serialize};
+use url::Url;
+use utoipa::IntoParams;
+use uuid::Uuid;
+
+#[derive(Debug, Deserialize, IntoParams)]
+pub struct WebhookUrlQuery {
+    pub webhook_url: Url,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, IntoParams)]
+#[serde(deny_unknown_fields, try_from = "TrackIdentAndUrlRaw")]
+pub struct TrackIdentAndUrlQuery {
+    pub webhook_url: Url,
+    pub name: Option<String>,
+    pub uuid: Option<Uuid>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TrackIdentAndUrlRaw {
+    webhook_url: Url,
+    name: Option<String>,
+    uuid: Option<Uuid>,
+}
+impl TryFrom<TrackIdentAndUrlRaw> for TrackIdentAndUrlQuery {
+    type Error = &'static str;
+
+    fn try_from(raw: TrackIdentAndUrlRaw) -> Result<Self, Self::Error> {
+        if raw.name.is_none() && raw.uuid.is_none() {
+            return Err("At least one of 'name' or 'uuid' must be provided");
+        }
+        if let Some(name) = &raw.name
+            && name.is_empty()
+        {
+            return Err("'name' can't be empty");
+        }
+
+        Ok(Self {
+            webhook_url: raw.webhook_url,
+            name: raw.name,
+            uuid: raw.uuid,
+        })
+    }
+}
 
 // Tracking endpoints
 #[utoipa::path(
     get,
-    path = "/api/tracking/{webhook_name}",
+    path = "/api/tracking",
     params(
-        ("webhook_name" = String, Path, description = "Name of the webhook")
+        WebhookUrlQuery
     ),
     responses(
         (status = 200, description = "Webhook info", body = Vec<WebhookInfo>),
@@ -24,17 +66,17 @@ use data_core::api::manager::{PlayerTrackIdent, PlayerTrackInfo, WebhookInfo};
 )]
 pub async fn get_webhook_info(
     State(app): State<AppState>,
-    Path(webhook_name): Path<String>,
+    Query(w): Query<WebhookUrlQuery>,
 ) -> Result<Json<WebhookInfo>, PlayerTrackingServiceError> {
     let s = app
         .player_tracking_service
         .ok_or(PlayerTrackingServiceError::Disabled)?;
-    s.get_webhook_info(webhook_name).await.map(Json)
+    s.get_webhook_info(&w.webhook_url).await.map(Json)
 }
 
 #[utoipa::path(
     get,
-    path = "/api/tracking",
+    path = "/api/tracking/all",
     responses(
         (status = 200, description = "List of webhooks with info", body = Vec<WebhookInfo>),
         (status = 500, description = "Player tracking service internal server error", body = PlayerTrackingServiceError),
@@ -75,9 +117,9 @@ pub async fn add_webhook(
 
 #[utoipa::path(
     delete,
-    path = "/api/tracking/{webhook_name}",
+    path = "/api/tracking",
     params(
-        ("webhook_name" = String, Path, description = "Name of the webhook")
+        WebhookUrlQuery
     ),
     responses(
         (status = 200, description = "Webhook successfully removed"),
@@ -88,19 +130,19 @@ pub async fn add_webhook(
 )]
 pub async fn webhook_delete(
     State(app): State<AppState>,
-    Path(webhook_name): Path<String>,
+    Query(w): Query<WebhookUrlQuery>,
 ) -> Result<(), PlayerTrackingServiceError> {
     app.player_tracking_service
         .ok_or(PlayerTrackingServiceError::Disabled)?
-        .delete_webhook(&webhook_name)
+        .delete_webhook(&w.webhook_url)
         .await
 }
 
 #[utoipa::path(
     get,
-    path = "/api/tracking/{webhook_name}/players/all",
+    path = "/api/tracking/players/all",
     params(
-        ("webhook_name" = String, Path, description = "Name of the webhook")
+        WebhookUrlQuery
     ),
     responses(
         (status = 200, description = "List of player tracks info", body = Vec<PlayerTrackInfo>),
@@ -112,20 +154,21 @@ pub async fn webhook_delete(
 )]
 pub async fn webhook_all_players_info(
     State(app): State<AppState>,
-    Path(webhook_name): Path<String>,
+    Query(w): Query<WebhookUrlQuery>,
 ) -> Result<Json<Vec<PlayerTrackInfo>>, PlayerTrackingServiceError> {
     let s = app
         .player_tracking_service
         .ok_or(PlayerTrackingServiceError::Disabled)?;
-    s.get_all_tracks_from_webhook(webhook_name).await.map(Json)
+    s.get_all_tracks_from_webhook(&w.webhook_url)
+        .await
+        .map(Json)
 }
 
 #[utoipa::path(
     get,
-    path = "/api/tracking/{webhook_name}/players",
+    path = "/api/tracking/players",
     params(
-        ("webhook_name" = String, Path, description = "Name of the webhook"),
-        PlayerTrackIdent
+        TrackIdentAndUrlQuery
     ),
     responses(
         (status = 200, description = "Player track info", body = PlayerTrackInfo),
@@ -137,21 +180,21 @@ pub async fn webhook_all_players_info(
 )]
 pub async fn get_player_info(
     State(app): State<AppState>,
-    Path(webhook_name): Path<String>,
-    Query(data): Query<PlayerTrackIdent>,
+    Query(data): Query<TrackIdentAndUrlQuery>,
 ) -> Result<Json<PlayerTrackInfo>, PlayerTrackingServiceError> {
     let s = app
         .player_tracking_service
         .ok_or(PlayerTrackingServiceError::Disabled)?;
-    s.get_track_info(webhook_name, data).await.map(Json)
+    s.get_track_info(&data.webhook_url, data.name, data.uuid)
+        .await
+        .map(Json)
 }
 
 #[utoipa::path(
     post,
-    path = "/api/tracking/{webhook_name}/players",
+    path = "/api/tracking/players",
     params(
-        ("webhook_name" = String, Path, description = "Name of the webhook"),
-        PlayerTrackIdent
+        TrackIdentAndUrlQuery
     ),
     responses(
         (status = 200, description = "Player track successfully added"),
@@ -163,21 +206,20 @@ pub async fn get_player_info(
 )]
 pub async fn add_player(
     State(app): State<AppState>,
-    Path(webhook_name): Path<String>,
-    Query(data): Query<PlayerTrackIdent>,
+    Query(data): Query<TrackIdentAndUrlQuery>,
 ) -> Result<(), PlayerTrackingServiceError> {
     let s = app
         .player_tracking_service
         .ok_or(PlayerTrackingServiceError::Disabled)?;
-    s.add_player_track(webhook_name, data).await
+    s.add_player_track(&data.webhook_url, data.name, data.uuid)
+        .await
 }
 
 #[utoipa::path(
     delete,
-    path = "/api/tracking/{webhook_name}/players",
+    path = "/api/tracking/players",
     params(
-        ("webhook_name" = String, Path, description = "Name of the webhook to delete from"),
-        PlayerTrackIdent
+        TrackIdentAndUrlQuery
     ),
     responses(
         (status = 200, description = "Player track successfully deleted"),
@@ -189,11 +231,11 @@ pub async fn add_player(
 )]
 pub async fn delete_player_record(
     State(app): State<AppState>,
-    Path(webhook_name): Path<String>,
-    Query(data): Query<PlayerTrackIdent>,
+    Query(data): Query<TrackIdentAndUrlQuery>,
 ) -> Result<(), PlayerTrackingServiceError> {
     let s = app
         .player_tracking_service
         .ok_or(PlayerTrackingServiceError::Disabled)?;
-    s.remove_track(webhook_name, data).await
+    s.remove_track(&data.webhook_url, data.name, data.uuid)
+        .await
 }
