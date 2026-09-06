@@ -1,4 +1,5 @@
 mod cookie_storage;
+use base64::engine::general_purpose::STANDARD as BASE64;
 use cookie_storage::{CookieStorage, CookieStorageError};
 
 pub mod server_dst;
@@ -14,6 +15,7 @@ use crate::states::configuration::s2c::CustomPayloadPacket;
 use crate::states::configuration::types::CustomPayloadData;
 use crate::types::*;
 use crate::{is_packet_any, states};
+use base64::Engine;
 use std::collections::HashSet;
 use std::time::Duration;
 use tokio::time::timeout;
@@ -131,6 +133,14 @@ impl ServerDialog {
             Some(v) => v.into_iter().map(PlayerRecord::from).collect(),
         };
 
+        let favicon = status_resp
+            .favicon
+            .and_then(|s| {
+                s.strip_prefix("data:image/png;base64,")
+                    .map(|s| s.to_string())
+            })
+            .and_then(|s| BASE64.decode(s).ok());
+
         let server_data = ServerData {
             description: status_resp.description.formatted(),
             protocol: status_resp.version.protocol,
@@ -159,6 +169,7 @@ impl ServerDialog {
             hashed_seed: None,
             gamemode: None,
             is_flat: None,
+            favicon,
         };
         Ok(server_data)
     }

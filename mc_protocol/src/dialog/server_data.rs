@@ -53,6 +53,7 @@ pub struct ServerData {
     pub reduced_debug_info: Option<bool>,
     pub do_limited_crafting: Option<bool>,
     pub is_flat: Option<bool>,
+    pub favicon: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]

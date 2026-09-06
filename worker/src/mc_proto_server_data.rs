@@ -37,6 +37,7 @@ pub fn gen_protobuf_server_data(
         reduced_debug_info,
         do_limited_crafting,
         is_flat,
+        favicon,
     } = server_data;
 
     let ExtraServerData {
@@ -92,6 +93,7 @@ pub fn gen_protobuf_server_data(
         is_online_mode,
         offline_auth,
         player_name: Some(player_name),
+        favicon,
     }
 }
 fn to_proto_players(players: HashSet<PlayerRecord>) -> Vec<pb::PlayerRecord> {

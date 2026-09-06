@@ -83,7 +83,7 @@ impl WorkerService {
         let dst = match dst {
             Ok(dst) => dst,
             Err(e) => {
-                log::debug!("[{serv_dst_log}] can't get server destination: {e}");
+                log::debug!("can't get server destination for '{serv_dst_log}': {e}");
                 return None;
             }
         };
@@ -95,15 +95,15 @@ impl WorkerService {
         };
 
         let result = dialog.connect(conn_settings).await;
-        log::trace!("[{serv_dst_log}] result: {:?}", result);
+        log::trace!("'{serv_dst_log}' result: {:?}", result);
         match result {
             ConnectionResult::NoHandshake(e) => {
-                log::debug!("[{serv_dst_log}] can't handshake: {e}");
+                log::debug!("can't handshake with '{serv_dst_log}': {e}");
                 return None;
             }
             _ => {}
         }
-        log::debug!("[{serv_dst_log}] parsed");
+        log::debug!("'{serv_dst_log}' is parsed");
         let extra_data = ExtraServerData::parse(player, conn_method, &result);
         let data = result.get_data().unwrap(); // has data because we check this is not 'NoHandshake'
         Some(gen_protobuf_server_data(dst, data, extra_data))

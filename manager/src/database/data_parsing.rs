@@ -6,6 +6,7 @@ use data_core::sql::data::{
     NewServerCommands, NewServerFeatures, NewServerLinks, NewServerMods, NewWorldData,
 };
 use ipnetwork::IpNetwork;
+use std::collections::HashSet;
 use std::net::IpAddr;
 use uuid::Uuid;
 
@@ -69,6 +70,7 @@ impl ParsedForSqlServerData {
             is_online_mode,
             offline_auth,
             player_name,
+            favicon,
         } = pb_server_data;
 
         let ip = IpAddr::try_from(ip.ok_or(SqlParsePbDataError::NoField("ip"))?)
@@ -86,7 +88,7 @@ impl ParsedForSqlServerData {
         let difficulty: Option<sql_data::Difficulty> =
             difficulty.and_then(|v| pb::Difficulty::try_from(v).ok().and_then(|v| v.into()));
 
-        let players: Vec<NewPlayerSession> = players
+        let players: HashSet<NewPlayerSession> = players
             .into_iter()
             .map(|p| {
                 Ok(NewPlayerSession {
@@ -121,6 +123,7 @@ impl ParsedForSqlServerData {
             is_online_mode,
             offline_auth,
             code_of_conduct,
+            favicon_bytes: favicon,
         };
 
         let new_world_data = NewWorldData {

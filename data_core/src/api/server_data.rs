@@ -110,6 +110,7 @@ pub struct McServerData {
     pub is_whitelist: Option<bool>,
     pub is_online_mode: Option<bool>,
     pub offline_auth: Option<bool>,
+    pub favicon: Option<Vec<u8>>,
 }
 
 impl TryFrom<proto::scanner::McServerData> for McServerData {
@@ -188,6 +189,7 @@ impl TryFrom<proto::scanner::McServerData> for McServerData {
             is_whitelist: value.is_whitelist,
             is_online_mode: value.is_online_mode,
             offline_auth: value.offline_auth,
+            favicon: value.favicon,
         })
     }
 }

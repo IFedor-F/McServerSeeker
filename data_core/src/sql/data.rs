@@ -2,11 +2,13 @@ use crate::proto::scanner;
 use chrono::{DateTime, Utc};
 use ipnetwork::IpNetwork;
 use itertools::Itertools;
+use sha2::{Digest, Sha256};
 use sqlx::{FromRow, PgConnection, Type};
+use std::collections::HashSet;
 use uuid::Uuid;
 
 // schema 'data'
-#[derive(Debug, Clone, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Type)]
 #[sqlx(type_name = "data.difficulty", rename_all = "lowercase")]
 pub enum Difficulty {
     Peaceful,
@@ -15,7 +17,7 @@ pub enum Difficulty {
     Hard,
 }
 
-#[derive(Debug, Clone, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Type)]
 #[sqlx(type_name = "data.gamemode", rename_all = "lowercase")]
 pub enum GameMode {
     Survival,
@@ -24,7 +26,7 @@ pub enum GameMode {
     Spectator,
 }
 
-#[derive(Debug, Clone, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Type)]
 #[sqlx(type_name = "data.connection_result", rename_all = "snake_case")]
 pub enum ConnectionResult {
     LoginDisconnect,
@@ -33,7 +35,7 @@ pub enum ConnectionResult {
     Successful,
 }
 
-#[derive(Debug, Clone, FromRow)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, FromRow)]
 pub struct Server {
     pub id: i32,
     pub ip: IpNetwork,
@@ -56,9 +58,10 @@ pub struct Server {
     pub is_online_mode: Option<bool>,
     pub offline_auth: Option<bool>,
     pub code_of_conduct: Option<String>,
+    pub favicon_id: Option<i32>,
 }
 
-#[derive(Debug, Clone, FromRow)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, FromRow)]
 pub struct Player {
     pub id: i32,
     pub uuid: Uuid,
@@ -78,19 +81,19 @@ pub struct PlayerRecord {
     pub last_ping: Option<i32>,
 }
 
-#[derive(Debug, Clone, FromRow)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, FromRow)]
 pub struct Mod {
     pub id: i32,
     pub name: String,
 }
 
-#[derive(Debug, Clone, FromRow)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, FromRow)]
 pub struct ServerMod {
     pub server_id: i32,
     pub mod_id: i32,
 }
 
-#[derive(Debug, Clone, FromRow)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, FromRow)]
 pub struct ResourcePack {
     pub server_id: i32,
     pub url: String,
@@ -98,14 +101,14 @@ pub struct ResourcePack {
     pub forced: bool,
 }
 
-#[derive(Debug, Clone, FromRow)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, FromRow)]
 pub struct Link {
     pub id: i32,
     pub server_id: i32,
     pub url: String,
 }
 
-#[derive(Debug, Clone, FromRow)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, FromRow)]
 pub struct WorldData {
     pub server_id: i32,
     pub hashed_seed: Option<i64>,
@@ -120,42 +123,44 @@ pub struct WorldData {
     pub is_flat: Option<bool>,
 }
 
-#[derive(FromRow, Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, FromRow)]
 pub struct Command {
     pub id: i32,
     pub name: String,
 }
 
-#[derive(FromRow, Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, FromRow)]
 pub struct ServerCommand {
     pub server_id: i32,
     pub command_id: i32,
 }
 
-#[derive(FromRow, Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, FromRow)]
 pub struct Feature {
     pub id: i32,
     pub identifier: String,
 }
 
-#[derive(FromRow, Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, FromRow)]
 pub struct ServerFeature {
     pub server_id: i32,
     pub feature_id: i32,
 }
 
-#[derive(FromRow, Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, FromRow)]
 pub struct Channel {
     pub id: i32,
     pub identifier: String,
 }
-#[derive(FromRow, Debug, Clone)]
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, FromRow)]
 pub struct ServerChannel {
     pub server_id: i32,
     pub channel_id: i32,
 }
 
 // structs for inserts
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NewServer {
     pub ip: IpNetwork,
     pub port: i32,
@@ -175,7 +180,9 @@ pub struct NewServer {
     pub is_online_mode: Option<bool>,
     pub offline_auth: Option<bool>,
     pub code_of_conduct: Option<String>,
+    pub favicon_bytes: Option<Vec<u8>>,
 }
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NewWorldData {
     pub hashed_seed: Option<i64>,
     pub gamemode: Option<GameMode>,
@@ -189,6 +196,7 @@ pub struct NewWorldData {
     pub is_flat: Option<bool>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NewPlayerSession {
     pub uuid: Uuid,
     pub name: String,
@@ -196,30 +204,39 @@ pub struct NewPlayerSession {
     pub game_mode: Option<GameMode>,
     pub ping: Option<i32>,
 }
+
+#[derive(Debug, Clone)]
 pub struct NewPlayersBatch {
     pub time: DateTime<Utc>,
-    pub players: Vec<NewPlayerSession>,
+    pub players: HashSet<NewPlayerSession>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NewServerCommands {
     pub commands: Vec<String>,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NewServerFeatures {
     pub features: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NewServerChannels {
     pub channels: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NewServerMods {
     pub mods_names: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NewServerLinks {
     pub links: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NewResourcePack {
     pub url: String,
     pub hash: Option<String>,
@@ -227,15 +244,52 @@ pub struct NewResourcePack {
 }
 impl NewServer {
     pub async fn upsert_with_id_returning(self, tx: &mut PgConnection) -> Result<i32, sqlx::Error> {
+        let hash_and_bytes = match self.favicon_bytes {
+            None => None,
+            Some(bytes) => {
+                let mut hasher = Sha256::new();
+                hasher.update(&bytes);
+                Some((hex::encode(hasher.finalize()), bytes))
+            }
+        };
+
+        let favicon_id = match hash_and_bytes {
+            None => None,
+            Some((hash, bytes)) => {
+                let value = sqlx::query_scalar!(
+                    r#"
+                    INSERT INTO data.favicons (hash, image_data) VALUES ($1, $2)
+                    ON CONFLICT DO NOTHING
+                    RETURNING id
+                    "#,
+                    hash,
+                    bytes
+                )
+                .fetch_optional(&mut *tx)
+                .await?;
+                match value {
+                    None => Some(
+                        sqlx::query_scalar!(
+                            r#"SELECT id FROM data.favicons WHERE hash = $1"#,
+                            hash
+                        )
+                        .fetch_one(&mut *tx)
+                        .await?,
+                    ),
+                    Some(v) => Some(v),
+                }
+            }
+        };
+
         sqlx::query_scalar!(
             r#"
             INSERT INTO data.servers (
                 ip, port, domain, last_connection_result, last_used_nick, description, protocol, version_name, brand,
                 first_seen, last_seen, last_checked, online_players, max_players,
                 enforces_secure_chat, no_chat_reports, is_whitelist, is_online_mode,
-                offline_auth, code_of_conduct
+                offline_auth, code_of_conduct, favicon_id
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $10, $11, $12, $13, $14, $15, $16, $17, $18
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
             )
             ON CONFLICT (ip, port) DO UPDATE SET
                 domain = COALESCE(EXCLUDED.domain, data.servers.domain),
@@ -243,18 +297,20 @@ impl NewServer {
                 last_used_nick = EXCLUDED.last_used_nick,
                 description = EXCLUDED.description,
                 protocol = EXCLUDED.protocol,
-                version_name = excluded.version_name,
-                brand = COALESCE(excluded.brand, data.servers.brand),
+                version_name = EXCLUDED.version_name,
+                brand = COALESCE(EXCLUDED.brand, data.servers.brand),
                 last_seen = EXCLUDED.last_seen,
                 last_checked = EXCLUDED.last_checked,
-                online_players = excluded.online_players,
-                max_players = excluded.max_players,
-                enforces_secure_chat = excluded.enforces_secure_chat,
-                no_chat_reports = excluded.no_chat_reports,
-                is_whitelist = COALESCE(excluded.is_whitelist, data.servers.is_whitelist),
-                is_online_mode = COALESCE(excluded.is_online_mode, data.servers.is_online_mode),
-                offline_auth = COALESCE(excluded.offline_auth, data.servers.offline_auth),
-                code_of_conduct = COALESCE(excluded.code_of_conduct, data.servers.code_of_conduct)
+                online_players = EXCLUDED.online_players,
+                max_players = EXCLUDED.max_players,
+                enforces_secure_chat = EXCLUDED.enforces_secure_chat,
+                no_chat_reports = EXCLUDED.no_chat_reports,
+                is_whitelist = COALESCE(EXCLUDED.is_whitelist, data.servers.is_whitelist),
+                is_online_mode = COALESCE(EXCLUDED.is_online_mode, data.servers.is_online_mode),
+                offline_auth = COALESCE(EXCLUDED.offline_auth, data.servers.offline_auth),
+                code_of_conduct = COALESCE(EXCLUDED.code_of_conduct, data.servers.code_of_conduct),
+                favicon_id = EXCLUDED.favicon_id
+
             RETURNING id
             "#,
             self.ip,
@@ -274,7 +330,8 @@ impl NewServer {
             self.is_whitelist,
             self.is_online_mode,
             self.offline_auth,
-            self.code_of_conduct
+            self.code_of_conduct,
+            favicon_id
         )
             .fetch_one(tx)
             .await
@@ -289,16 +346,16 @@ impl NewWorldData {
                 simulation_distance, is_hardcore, reduced_debug_info, do_limited_crafting, is_flat
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             ON CONFLICT (server_id) DO UPDATE SET
-                hashed_seed = COALESCE(excluded.hashed_seed, world_data.hashed_seed),
-                gamemode = COALESCE(excluded.gamemode, world_data.gamemode),
-                difficulty = COALESCE(excluded.difficulty, world_data.difficulty),
-                dimension = COALESCE(excluded.dimension, world_data.dimension),
-                view_distance = COALESCE(excluded.view_distance, world_data.view_distance),
-                simulation_distance = COALESCE(excluded.simulation_distance, world_data.simulation_distance),
-                is_hardcore = COALESCE(excluded.is_hardcore, world_data.is_hardcore),
-                reduced_debug_info = COALESCE(excluded.reduced_debug_info, world_data.reduced_debug_info),
-                do_limited_crafting = COALESCE(excluded.do_limited_crafting, world_data.do_limited_crafting),
-                is_flat = COALESCE(excluded.is_flat, world_data.is_flat)
+                hashed_seed = COALESCE(EXCLUDED.hashed_seed, world_data.hashed_seed),
+                gamemode = COALESCE(EXCLUDED.gamemode, world_data.gamemode),
+                difficulty = COALESCE(EXCLUDED.difficulty, world_data.difficulty),
+                dimension = COALESCE(EXCLUDED.dimension, world_data.dimension),
+                view_distance = COALESCE(EXCLUDED.view_distance, world_data.view_distance),
+                simulation_distance = COALESCE(EXCLUDED.simulation_distance, world_data.simulation_distance),
+                is_hardcore = COALESCE(EXCLUDED.is_hardcore, world_data.is_hardcore),
+                reduced_debug_info = COALESCE(EXCLUDED.reduced_debug_info, world_data.reduced_debug_info),
+                do_limited_crafting = COALESCE(EXCLUDED.do_limited_crafting, world_data.do_limited_crafting),
+                is_flat = COALESCE(EXCLUDED.is_flat, world_data.is_flat)
             "#,
             server_id,
             self.hashed_seed,

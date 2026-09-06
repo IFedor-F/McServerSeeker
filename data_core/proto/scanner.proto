@@ -126,6 +126,7 @@ message McServerData {
   optional bool is_online_mode = 32;
   optional bool offline_auth = 33;
   optional string player_name = 34;
+  optional bytes favicon = 35;
 }
 
 message ScanTarget {

@@ -11,10 +11,11 @@ uuid = { version = "1.24", features = ["v3", "v4"] }
 fastrand = "2.5"
 bytes = "1.12"
 thiserror = "2.0"
-flate2 = "1.1.9"
-md5 = "0.8.0"
+flate2 = "1.1"
+md5 = "0.8"
 log = "0.4"
 hickory-resolver = "0.26"
+base64 = "0.23"
 
 [dev-dependencies]
 testcontainers = { version = "0.28" }
