@@ -17,6 +17,12 @@ pub enum PlayerParseError {
 
     #[error("player name is too long ({0})")]
     TooLongName(usize),
+
+    #[error("player name is empty")]
+    EmptyName,
+
+    #[error("player name contains unexpected characters")]
+    UnexpectedCharacters,
 }
 
 /// Represents Minecraft Player
@@ -44,9 +50,7 @@ impl Player {
         Self::from_name_and_uuid(name, uuid)
     }
     pub fn from_name_and_uuid(name: String, uuid: Uuid) -> Result<Player, PlayerParseError> {
-        if name.len() > 16 {
-            return Err(PlayerParseError::TooLongName(name.len()));
-        }
+        check_mc_username(&name)?;
         match uuid.get_version() {
             Some(uuid::Version::Md5) => Ok(Player {
                 name,
@@ -72,9 +76,7 @@ impl Player {
         }
     }
     pub fn from_offline_name(name: String) -> Result<Self, PlayerParseError> {
-        if name.len() > 16 {
-            return Err(PlayerParseError::TooLongName(name.len()));
-        }
+        check_mc_username(&name)?;
 
         let data = format!("OfflinePlayer:{}", name);
         let hash = md5::compute(data.as_bytes());
@@ -114,4 +116,24 @@ impl Player {
             .collect();
         Self::from_offline_name(name).unwrap() // because we generate correct name (len <= 16)
     }
+}
+
+pub fn check_mc_username(username: &str) -> Result<(), PlayerParseError> {
+    let len = username.len();
+    if len == 0 {
+        return Err(PlayerParseError::EmptyName);
+    }
+
+    let is_correct_chars = username
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_');
+
+    if !is_correct_chars {
+        return Err(PlayerParseError::UnexpectedCharacters);
+    }
+
+    if len > 16 {
+        return Err(PlayerParseError::TooLongName(len));
+    }
+    Ok(())
 }
