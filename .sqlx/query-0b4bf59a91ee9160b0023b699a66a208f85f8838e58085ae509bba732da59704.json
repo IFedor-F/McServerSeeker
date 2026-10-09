@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT ip, port, last_used_nick FROM data.servers",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ip",
+        "type_info": "Inet",
+        "origin": {
+          "Table": {
+            "table": "data.servers",
+            "name": "ip"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "port",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "data.servers",
+            "name": "port"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "last_used_nick",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "data.servers",
+            "name": "last_used_nick"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "0b4bf59a91ee9160b0023b699a66a208f85f8838e58085ae509bba732da59704"
+}

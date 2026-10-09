@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                WITH input_data AS (\n                    SELECT DISTINCT identifier FROM UNNEST($2::text[]) AS identifier\n                ),\n                inserted AS (\n                    INSERT INTO data.channels (identifier)\n                    SELECT i.identifier FROM input_data i\n                    WHERE NOT EXISTS (\n                        SELECT 1\n                        FROM data.channels c\n                        WHERE c.identifier = i.identifier\n                    )\n                    ON CONFLICT (identifier) DO NOTHING\n                    RETURNING id\n                ),\n                existing AS (\n                    SELECT id\n                    FROM data.channels\n                    WHERE identifier = ANY($2::text[])\n                ),\n                all_ids AS (\n                    SELECT id FROM inserted\n                    UNION ALL\n                    SELECT id FROM existing\n                ),\n                deleted_mappings AS (\n                    DELETE FROM data.server_channels\n                    WHERE server_id = $1 AND channel_id NOT IN (SELECT id FROM all_ids)\n                )\n                INSERT INTO data.server_channels (server_id, channel_id)\n                SELECT $1, id FROM all_ids\n                ON CONFLICT (server_id, channel_id) DO NOTHING;\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7f268f1d84ae52e54f2499086c91ca357ad240646aafa730d2114dfeb356b766"
+}

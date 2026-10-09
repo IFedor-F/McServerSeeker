@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT t.name, t.uuid, t.last_send, s.ip, s.port\n            FROM analytics.webhooks w\n                LEFT JOIN analytics.player_tracks t ON t.webhook_id = w.id\n                LEFT JOIN data.servers s on t.last_server_id = s.id\n            WHERE w.url = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "analytics.player_tracks",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "uuid",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "analytics.player_tracks",
+            "name": "uuid"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "last_send",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "analytics.player_tracks",
+            "name": "last_send"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "ip",
+        "type_info": "Inet",
+        "origin": {
+          "Table": {
+            "table": "data.servers",
+            "name": "ip"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "port",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "data.servers",
+            "name": "port"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "6c1951342579c2949bd6f6848f15d5e5fae840d7c25bff03c4e5569d2bc59b38"
+}

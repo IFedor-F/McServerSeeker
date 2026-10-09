@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH w_id AS (\n                SELECT id FROM analytics.webhooks WHERE url = $3\n            ),\n            insert AS (\n                INSERT INTO analytics.player_tracks (name, uuid, webhook_id)\n                SELECT $1, $2, id FROM w_id\n                ON CONFLICT (name, uuid, webhook_id) DO NOTHING\n            )\n            SELECT id FROM w_id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "analytics.webhooks",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a106fbaec5fa6f206f1d4cbe644dd8a386dd07670958d565cc99ba8fd526e24e"
+}

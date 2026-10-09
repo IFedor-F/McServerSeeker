@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO data.resource_packs (server_id, url, hash, forced) VALUES ($1, $2, $3, $4)\n            ON CONFLICT (server_id) DO UPDATE SET\n                url = EXCLUDED.url,\n                hash = EXCLUDED.hash,\n                forced = EXCLUDED.forced\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Text",
+        "Varchar",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "861e85b6551e37ffa1e95dc1a42ba0d9f1e8f8e04bdd9ce45c30f0d074ac5043"
+}

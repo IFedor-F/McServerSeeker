@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO data.servers (\n                ip, port, domain, last_connection_result, last_used_nick, description, protocol, version_name, brand,\n                first_seen, last_seen, last_checked, online_players, max_players,\n                enforces_secure_chat, no_chat_reports, is_whitelist, is_online_mode,\n                offline_auth, code_of_conduct, favicon_id\n            ) VALUES (\n                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19\n            )\n            ON CONFLICT (ip, port) DO UPDATE SET\n                domain = COALESCE(EXCLUDED.domain, data.servers.domain),\n                last_connection_result = EXCLUDED.last_connection_result,\n                last_used_nick = EXCLUDED.last_used_nick,\n                description = EXCLUDED.description,\n                protocol = EXCLUDED.protocol,\n                version_name = EXCLUDED.version_name,\n                brand = COALESCE(EXCLUDED.brand, data.servers.brand),\n                last_seen = EXCLUDED.last_seen,\n                last_checked = EXCLUDED.last_checked,\n                online_players = EXCLUDED.online_players,\n                max_players = EXCLUDED.max_players,\n                enforces_secure_chat = EXCLUDED.enforces_secure_chat,\n                no_chat_reports = EXCLUDED.no_chat_reports,\n                is_whitelist = COALESCE(EXCLUDED.is_whitelist, data.servers.is_whitelist),\n                is_online_mode = COALESCE(EXCLUDED.is_online_mode, data.servers.is_online_mode),\n                offline_auth = COALESCE(EXCLUDED.offline_auth, data.servers.offline_auth),\n                code_of_conduct = COALESCE(EXCLUDED.code_of_conduct, data.servers.code_of_conduct),\n                favicon_id = EXCLUDED.favicon_id\n\n            RETURNING id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "data.servers",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Inet",
+        "Int4",
+        "Text",
+        {
+          "Custom": {
+            "name": "data.connection_result",
+            "kind": {
+              "Enum": [
+                "login_disconnect",
+                "configuration_disconnect",
+                "play_disconnect",
+                "successful"
+              ]
+            }
+          }
+        },
+        "Varchar",
+        "Text",
+        "Int4",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Int4",
+        "Int4",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "227898dab901baded4aca701b50721b999b603dd105d20fc5d8a75b84e37fe1e"
+}

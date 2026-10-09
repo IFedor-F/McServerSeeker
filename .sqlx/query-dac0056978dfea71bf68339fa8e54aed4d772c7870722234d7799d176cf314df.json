@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH input AS (\n                SELECT unnest($2::text[]) AS url\n            ),\n            deleted AS (\n                DELETE FROM data.links\n                WHERE server_id = $1 AND url NOT IN (SELECT url FROM input)\n            )\n            INSERT INTO data.links (server_id, url)\n            SELECT $1, url FROM input\n            ON CONFLICT (server_id, url) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dac0056978dfea71bf68339fa8e54aed4d772c7870722234d7799d176cf314df"
+}

@@ -1,0 +1,39 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH input AS (\n                SELECT uuid, name, is_online_mode, last_gamemode, last_ping\n                FROM UNNEST($3::uuid[], $4::text[], $5::bool[], $6::data.gamemode[], $7::integer[])\n                AS t(uuid, name, is_online_mode, last_gamemode, last_ping)\n            ),\n            upserted_players AS (\n                INSERT INTO data.players (uuid, name, is_online_mode, first_seen, last_seen)\n                SELECT uuid, name, is_online_mode, $2, $2 FROM input i\n                ON CONFLICT (uuid) DO UPDATE SET\n                    name = EXCLUDED.name,\n                    is_online_mode = EXCLUDED.is_online_mode,\n                    last_seen = EXCLUDED.last_seen\n                RETURNING id as player_id, uuid\n            )\n            INSERT INTO data.player_records (server_id, player_id, first_seen, last_seen, last_gamemode, last_ping)\n            SELECT $1, up.player_id, $2, $2, i.last_gamemode, i.last_ping\n            FROM upserted_players up\n            JOIN input i ON up.uuid = i.uuid\n            ON CONFLICT (server_id, player_id) DO UPDATE SET\n                last_seen = EXCLUDED.last_seen,\n                last_gamemode = EXCLUDED.last_gamemode,\n                last_ping = EXCLUDED.last_ping\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Timestamptz",
+        "UuidArray",
+        "TextArray",
+        "BoolArray",
+        {
+          "Custom": {
+            "name": "data.gamemode[]",
+            "kind": {
+              "Array": {
+                "Custom": {
+                  "name": "data.gamemode",
+                  "kind": {
+                    "Enum": [
+                      "survival",
+                      "creative",
+                      "adventure",
+                      "spectator"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "Int4Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "44446cce07c7e1c0fb1f28ee07c165c1b8272815e653917fd335f8c23d32c465"
+}

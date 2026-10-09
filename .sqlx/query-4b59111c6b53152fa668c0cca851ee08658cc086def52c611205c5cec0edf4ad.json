@@ -1,0 +1,48 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO data.world_data (\n                server_id, hashed_seed, gamemode, difficulty, dimension, view_distance,\n                simulation_distance, is_hardcore, reduced_debug_info, do_limited_crafting, is_flat\n            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)\n            ON CONFLICT (server_id) DO UPDATE SET\n                hashed_seed = COALESCE(EXCLUDED.hashed_seed, world_data.hashed_seed),\n                gamemode = COALESCE(EXCLUDED.gamemode, world_data.gamemode),\n                difficulty = COALESCE(EXCLUDED.difficulty, world_data.difficulty),\n                dimension = COALESCE(EXCLUDED.dimension, world_data.dimension),\n                view_distance = COALESCE(EXCLUDED.view_distance, world_data.view_distance),\n                simulation_distance = COALESCE(EXCLUDED.simulation_distance, world_data.simulation_distance),\n                is_hardcore = COALESCE(EXCLUDED.is_hardcore, world_data.is_hardcore),\n                reduced_debug_info = COALESCE(EXCLUDED.reduced_debug_info, world_data.reduced_debug_info),\n                do_limited_crafting = COALESCE(EXCLUDED.do_limited_crafting, world_data.do_limited_crafting),\n                is_flat = COALESCE(EXCLUDED.is_flat, world_data.is_flat)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int8",
+        {
+          "Custom": {
+            "name": "data.gamemode",
+            "kind": {
+              "Enum": [
+                "survival",
+                "creative",
+                "adventure",
+                "spectator"
+              ]
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "data.difficulty",
+            "kind": {
+              "Enum": [
+                "peaceful",
+                "easy",
+                "normal",
+                "hard"
+              ]
+            }
+          }
+        },
+        "Text",
+        "Int2",
+        "Int2",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4b59111c6b53152fa668c0cca851ee08658cc086def52c611205c5cec0edf4ad"
+}

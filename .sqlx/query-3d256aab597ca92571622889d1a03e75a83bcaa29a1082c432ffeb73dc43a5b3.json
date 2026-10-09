@@ -1,0 +1,86 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                WITH ranked_records AS (\n                    SELECT pt.id AS track_id,\n                    pt.webhook_id AS webhook_id,\n                    pr.server_id as active_server_id,\n                    p.name AS player_name,\n                    p.uuid AS player_uuid,\n                    s.ip AS server_ip,\n                    s.port AS server_port,\n                    pr.last_seen AS last_seen,\n\n                    ROW_NUMBER() OVER (\n                        PARTITION BY pt.id\n                        ORDER BY pr.last_seen DESC NULLS LAST\n                    ) as rn\n                    FROM analytics.player_tracks pt\n                    JOIN data.players p ON p.uuid = pt.uuid OR (pt.uuid IS NULL AND p.name = pt.name)\n                    JOIN data.player_records pr ON p.id = pr.player_id\n                    JOIN data.servers s ON pr.server_id = s.id\n                    WHERE pr.last_seen = s.last_seen\n                )\n                UPDATE analytics.player_tracks pt\n                SET last_server_id = rr.active_server_id, last_send = NOW()\n                FROM ranked_records rr\n                JOIN analytics.webhooks w ON rr.webhook_id = w.id\n                WHERE pt.id = rr.track_id AND rr.rn = 1 AND rr.active_server_id IS DISTINCT FROM pt.last_server_id\n                RETURNING w.url, rr.player_uuid, rr.player_name, rr.server_ip, rr.server_port, rr.last_seen\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "analytics.webhooks",
+            "name": "url"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "player_uuid",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "data.players",
+            "name": "uuid"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "player_name",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "data.players",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "server_ip",
+        "type_info": "Inet",
+        "origin": {
+          "Table": {
+            "table": "data.servers",
+            "name": "ip"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "server_port",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "data.servers",
+            "name": "port"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "last_seen",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "data.player_records",
+            "name": "last_seen"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "3d256aab597ca92571622889d1a03e75a83bcaa29a1082c432ffeb73dc43a5b3"
+}

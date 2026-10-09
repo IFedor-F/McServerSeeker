@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH target_webhook AS (\n                SELECT id FROM analytics.webhooks WHERE url = $3\n            ),\n            deleted_track AS (\n                DELETE FROM analytics.player_tracks\n                WHERE name IS NOT DISTINCT FROM $1\n                  AND uuid IS NOT DISTINCT FROM $2\n                  AND webhook_id = (SELECT id FROM target_webhook)\n                RETURNING id\n            )\n            SELECT EXISTS(SELECT 1 FROM target_webhook) AS \"webhook_exists!\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "webhook_exists!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "54d040be3bcce1ea15605b86c691be4b8032b3163cec29417546ff6582e1716e"
+}

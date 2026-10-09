@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH input_data AS (\n                SELECT DISTINCT name FROM UNNEST($2::text[]) AS name\n            ),\n            inserted AS (\n                INSERT INTO data.mods (name)\n                SELECT i.name\n                FROM input_data i\n                WHERE NOT EXISTS (\n                    SELECT 1\n                    FROM data.mods m\n                    WHERE m.name = i.name\n                )\n                ON CONFLICT (name) DO NOTHING\n                RETURNING id\n            ),\n            existing AS (\n                SELECT id\n                FROM data.mods\n                WHERE name = ANY($2::text[])\n            ),\n            all_ids AS (\n                SELECT id FROM inserted\n                UNION ALL\n                SELECT id FROM existing\n            ),\n            deleted_mappings AS (\n                DELETE FROM data.server_mods\n                WHERE server_id = $1 AND mod_id NOT IN (SELECT id FROM all_ids)\n            )\n            INSERT INTO data.server_mods (server_id, mod_id)\n            SELECT $1, id FROM all_ids\n            ON CONFLICT (server_id, mod_id) DO NOTHING;\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8c3495b8373de3c08b9eb9eb5e80f74ac8c2d34a651474cf7849dcbf9f97a744"
+}

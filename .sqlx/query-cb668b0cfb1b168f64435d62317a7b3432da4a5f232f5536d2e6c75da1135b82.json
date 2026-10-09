@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH input_data AS (\n                SELECT DISTINCT identifier FROM UNNEST($2::text[]) AS identifier\n            ),\n            inserted AS (\n                INSERT INTO data.features (identifier)\n                SELECT i.identifier\n                FROM input_data i\n                WHERE NOT EXISTS (\n                    SELECT 1\n                    FROM data.features f\n                    WHERE f.identifier = i.identifier\n                )\n                ON CONFLICT (identifier) DO NOTHING\n                RETURNING id\n            ),\n            existing AS (\n                SELECT id\n                FROM data.features\n                WHERE identifier = ANY($2::text[])\n            ),\n            all_ids AS (\n                SELECT id FROM inserted\n                UNION ALL\n                SELECT id FROM existing\n            ),\n            deleted_mappings AS (\n                DELETE FROM data.server_features\n                WHERE server_id = $1 AND feature_id NOT IN (SELECT id FROM all_ids)\n            )\n            -- FIX applied here: previously it was inserting into server_commands\n            INSERT INTO data.server_features (server_id, feature_id)\n            SELECT $1, id FROM all_ids\n            ON CONFLICT (server_id, feature_id) DO NOTHING;\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cb668b0cfb1b168f64435d62317a7b3432da4a5f232f5536d2e6c75da1135b82"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO analytics.webhooks (name, url) values ($1, $2)\n            ON CONFLICT (url) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b92b16600a8d39c714a4ca1eacdff6b965bf9b083f01987e219df221946d178d"
+}
