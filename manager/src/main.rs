@@ -66,11 +66,12 @@ async fn main() {
     };
 
     // api
+    dbg!(&config);
     if config.api_settings.enabled {
-        let bind_addr = env::var("BIND_ADDR")
+        let bind_addr = env::var("API_BIND_ADDR")
             .ok()
             .or(config.api_settings.bind_address.clone())
-            .expect("'BIND_ADDR' is expected in env or 'bind_addr' in config 'api' section");
+            .expect("'API_BIND_ADDR' is expected in env or 'bind_addr' in config 'api' section");
 
         let app = api::setup_router(
             manager_service.clone(),
