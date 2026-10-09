@@ -103,6 +103,10 @@ impl ParsedForSqlServerData {
             .collect::<Result<_, _>>()?;
 
         let time: DateTime<Utc> = Utc::now();
+        let features = features
+            .into_iter()
+            .map(|v| v.strip_prefix("minecraft:").unwrap_or(&v).to_string())
+            .collect();
 
         let new_server = NewServer {
             ip: IpNetwork::from(ip),
