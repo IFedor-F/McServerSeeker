@@ -66,7 +66,6 @@ async fn main() {
     };
 
     // api
-    dbg!(&config);
     if config.api_settings.enabled {
         let bind_addr = env::var("API_BIND_ADDR")
             .ok()
