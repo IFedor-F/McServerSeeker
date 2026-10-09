@@ -33,7 +33,7 @@ jobs:
         with:
           context: .
           target: mc_server_seeker_worker
-          push: false
+          push: true
           tags: mc_server_seeker_worker:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -43,7 +43,7 @@ jobs:
         with:
           context: .
           target: mc_server_seeker_manager
-          push: false
+          push: true
           tags: mc_server_seeker_manager:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
