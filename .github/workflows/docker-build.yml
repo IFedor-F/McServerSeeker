@@ -34,7 +34,7 @@ jobs:
           context: .
           target: mc_server_seeker_worker
           push: true
-          tags: mc_server_seeker_worker:latest
+          tags: ghcr.io/ifedor-f/mc_server_seeker_worker:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -44,6 +44,6 @@ jobs:
           context: .
           target: mc_server_seeker_manager
           push: true
-          tags: mc_server_seeker_manager:latest
+          tags: ghcr.io/ifedor-f/mc_server_seeker_manager:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
