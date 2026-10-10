@@ -239,6 +239,7 @@ impl NewPlayersBatch {
         ) = self
             .players
             .into_iter()
+            .unique_by(|p| p.uuid)
             .map(|p| (p.uuid, p.name, p.is_online_mode, p.game_mode, p.ping))
             .multiunzip();
 
