@@ -7,3 +7,36 @@ panic = "abort"
 
 [profile.dev]
 panic = "abort"
+
+[workspace.dependencies]
+tokio = { version = "1.53", features = ["full"] }
+tokio-util = "0.7.19"
+tokio-stream = "0.1"
+futures = "0.3"
+
+tonic = { version = "0.14", features = ["tls-ring"] }
+prost = "0.14"
+tonic-prost = "0.14"
+hickory-resolver = "0.26"
+reqwest = { version = "0.13", features = ["json"] }
+sqlx = { version = "0.9", features = ["postgres", "runtime-tokio", "tls-rustls", "chrono", "uuid", "ipnetwork"] }
+
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "1.1"
+uuid = { version = "1.24", features = ["serde", "v3", "v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+cron = "0.17"
+ipnetwork = { version = "0.21.1", features = ["serde"] }
+url = { version = "2.5", features = ["serde"] }
+bytes = "1.12"
+
+log = "0.4"
+env_logger = "0.11"
+thiserror = "2.0"
+
+axum = "0.8"
+utoipa = { version = "6.0", features = ["axum_extras", "uuid", "url", "chrono"] }
+
+itertools = "0.15"
+fastrand = "2.5"
