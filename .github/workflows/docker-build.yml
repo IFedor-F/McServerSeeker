@@ -3,6 +3,7 @@ name: Build Docker Images
 on:
   push:
     branches: [ "main" ]
+    tags: [ "v*.*.*" ]
   pull_request:
     branches: [ "main" ]
 
@@ -28,15 +29,38 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Extract metadata for Worker
+        id: meta_worker
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/ifedor-f/mc_server_seeker_worker
+          tags: |
+            type=raw,value=dev,enable={{is_default_branch}}
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
       - name: Build Worker Image
         uses: docker/build-push-action@v7
         with:
           context: .
           target: mc_server_seeker_worker
           push: true
-          tags: ghcr.io/ifedor-f/mc_server_seeker_worker:latest
+          tags: ${{ steps.meta_worker.outputs.tags }}
+          labels: ${{ steps.meta_worker.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Extract metadata for Manager
+        id: meta_manager
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/ifedor-f/mc_server_seeker_manager
+          tags: |
+            type=raw,value=dev,enable={{is_default_branch}}
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
 
       - name: Build Manager Image
         uses: docker/build-push-action@v7
@@ -44,6 +68,7 @@ jobs:
           context: .
           target: mc_server_seeker_manager
           push: true
-          tags: ghcr.io/ifedor-f/mc_server_seeker_manager:latest
+          tags: ${{ steps.meta_manager.outputs.tags }}
+          labels: ${{ steps.meta_manager.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
