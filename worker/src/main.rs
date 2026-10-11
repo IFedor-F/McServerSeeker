@@ -83,7 +83,7 @@ impl WorkerService {
         let dst = match dst {
             Ok(dst) => dst,
             Err(e) => {
-                log::debug!("can't get server destination for '{serv_dst_log}': {e}");
+                log::debug!("Can't get server destination for '{serv_dst_log}': {e}");
                 return None;
             }
         };
@@ -98,13 +98,13 @@ impl WorkerService {
         log::trace!("'{serv_dst_log}' result: {:?}", result);
         match result {
             ConnectionResult::NoHandshake(e) => {
-                log::debug!("can't handshake with '{serv_dst_log}': {e}");
+                log::debug!("Can't handshake with '{serv_dst_log}': {e}");
                 return None;
             }
             _ => {}
         }
         log::debug!("'{serv_dst_log}' is parsed");
-        let extra_data = ExtraServerData::parse(player, conn_method, &result);
+        let extra_data = ExtraServerData::parse(dst.clone(), player, conn_method, &result);
         let data = result.get_data().unwrap(); // has data because we check this is not 'NoHandshake'
         Some(gen_protobuf_server_data(dst, data, extra_data))
     }
@@ -116,7 +116,7 @@ impl pb::worker_service_server::WorkerService for WorkerService {
         &self,
         request: Request<pb::DiscoverRequest>,
     ) -> Result<Response<Self::DiscoverStream>, Status> {
-        log::debug!("discover request: {:?}", request);
+        log::debug!("Discover request: {:?}", request);
 
         let pb::DiscoverRequest {
             targets,
@@ -167,7 +167,7 @@ impl pb::worker_service_server::WorkerService for WorkerService {
 
         let state_clone = self.state.clone();
 
-        log::info!("[job {job_id}] start discover");
+        log::info!("[job {job_id}] Start discover");
         tokio::spawn(async move {
             let mut scan_rx = scan::scan_inet(job_id, masscan_builder, rate as usize, method);
             loop {
@@ -181,7 +181,7 @@ impl pb::worker_service_server::WorkerService for WorkerService {
                                 match tx.send(Ok(upd)).await {
                                     Ok(_) => {}
                                     Err(e) => {
-                                        log::info!("[job {job_id}] failed to send stream to client: {e}");
+                                        log::info!("[job {job_id}] Failed to send stream to client: {e}");
                                         break;
                                     }
                                 }
@@ -195,7 +195,7 @@ impl pb::worker_service_server::WorkerService for WorkerService {
             }
             let mut state = state_clone.lock().await;
             _ = state.cancel_job(job_id);
-            log::info!("[job {job_id}] end discover")
+            log::info!("[job {job_id}] End discover")
         });
 
         Ok(Response::new(ReceiverStream::new(rx)))
@@ -207,7 +207,7 @@ impl pb::worker_service_server::WorkerService for WorkerService {
         &self,
         request: Request<pb::ScanSelectedRequest>,
     ) -> Result<Response<Self::ScanSelectedStream>, Status> {
-        log::debug!("rescan request: {:?}", request);
+        log::debug!("Rescan request: {:?}", request);
         let pb::ScanSelectedRequest {
             method,
             rate,
@@ -228,7 +228,7 @@ impl pb::worker_service_server::WorkerService for WorkerService {
         });
         let state_clone = self.state.clone();
 
-        log::info!("[job {job_id}] started rescan");
+        log::info!("[job {job_id}] Started rescan");
         let mut scan_rx = scan::scan_selected(job_id, targets, rate as usize, method).await?;
         tokio::spawn(async move {
             loop {
@@ -242,7 +242,7 @@ impl pb::worker_service_server::WorkerService for WorkerService {
                                 match tx.send(Ok(upd)).await{
                                     Ok(_) => {}
                                     Err(e) => {
-                                        log::info!("[job {job_id}] failed to send stream to client: {e}");
+                                        log::info!("[job {job_id}] Failed to send stream to client: {e}");
                                         break
                                     }
                                 };
@@ -256,7 +256,7 @@ impl pb::worker_service_server::WorkerService for WorkerService {
             }
             let mut state = state_clone.lock().await;
             _ = state.cancel_job(job_id);
-            log::info!("[job {job_id}] end rescan")
+            log::info!("[job {job_id}] End rescan")
         });
         Ok(Response::new(ReceiverStream::new(rx)))
     }
@@ -271,7 +271,7 @@ impl pb::worker_service_server::WorkerService for WorkerService {
             scan_method,
         } = request.into_inner();
         log::info!(
-            "scan one request: {target}{}",
+            "Scan one request: {target}{}",
             port.map(|v| format!(":{v}")).unwrap_or("".to_string())
         );
 
@@ -301,7 +301,7 @@ impl pb::worker_service_server::WorkerService for WorkerService {
 
     async fn cancel(&self, request: Request<pb::JobCancel>) -> Result<Response<()>, Status> {
         let job_id = request.into_inner().job_id;
-        log::info!("[job {job_id}] cancel job by client");
+        log::info!("[job {job_id}] Cancel job by client");
         match self.state.lock().await.cancel_job(job_id) {
             WorkerJobCancelResult::Canceled => Ok(Response::new(())),
             WorkerJobCancelResult::NotFound => Err(Status::not_found(format!(
@@ -322,7 +322,7 @@ async fn main() {
 
     // TLS
     let use_tls = env::var("USE_TLS").ok().unwrap_or_else(|| {
-        log::warn!("env 'USE_TLS' should be set, default is 'false'");
+        log::warn!("Env 'USE_TLS' should be set, default is 'false'");
         "false".to_string()
     });
     let use_tls: bool = use_tls
@@ -359,7 +359,7 @@ async fn main() {
 
     let worker = WorkerService::new(dns_resolver);
 
-    log::info!("listen {}", addr);
+    log::info!("Listen {}", addr);
     let mut builder = tonic::transport::Server::builder();
     if let Some(tls_config) = tls_config {
         builder = builder.tls_config(tls_config).expect("invalid tls config")

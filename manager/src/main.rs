@@ -79,7 +79,7 @@ async fn main() {
             configure_api_auth(&config),
         );
 
-        log::info!("API Server running on {}", bind_addr);
+        log::info!("API server running on {}", bind_addr);
         let listener = tokio::net::TcpListener::bind(bind_addr)
             .await
             .expect("can't bind port");
@@ -101,7 +101,7 @@ async fn main() {
         }
 
         _ = tokio::signal::ctrl_c() => {
-            log::info!("received shutdown signal");
+            log::info!("Received shutdown signal");
             return;
         }
     }
@@ -183,7 +183,7 @@ fn configure_api_auth(config: &Config) -> api::AuthSettings {
         .or(config.api_settings.use_api_token);
     if use_api_token.is_none() {
         log::warn!(
-            "can't find 'USE_API_TOKEN' in env and 'use_api_tokin' in config 'api' section, \
+            "Can't find 'USE_API_TOKEN' in env and 'use_api_tokin' in config 'api' section, \
             default value is 'false'. Set this explicitly"
         )
     }

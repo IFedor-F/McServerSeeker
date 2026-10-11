@@ -79,17 +79,17 @@ impl WebHook {
             match response {
                 Ok(resp) => {
                     if resp.status().is_success() {
-                        log::debug!("embed was set to {}", self.url);
+                        log::debug!("Embed was set to {}", self.url);
                     } else {
                         log::warn!(
-                            "embed was failed to send: HTTP {}, embed url: {}",
+                            "Embed was failed to send: HTTP {}, embed url: {}",
                             resp.status(),
                             self.url
                         );
                     }
                 }
                 Err(_) => {
-                    log::warn!("embed was failed to send, embed url: {}", self.url);
+                    log::warn!("Embed was failed to send, embed url: {}", self.url);
                 }
             }
             tokio::time::sleep(Duration::from_millis(500)).await // to avoid discord send limit

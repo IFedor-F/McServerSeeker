@@ -91,15 +91,15 @@ async fn parse_server(
     let dialog = ServerDialog::new(dst.clone(), player.clone());
     let result = dialog.connect(conn_settings).await;
 
-    log::trace!("[{}] result: {:?}", dst.socket_addr, result);
+    log::trace!("[{}] Result: {:?}", dst.socket_addr, result);
 
     if let ConnectionResult::NoHandshake(e) = &result {
-        log::trace!("[{}] can't handshake: {e}", dst.socket_addr);
+        log::trace!("[{}] Can't handshake: {e}", dst.socket_addr);
         return None;
     }
 
-    log::trace!("[{}] parsed", dst.socket_addr);
-    let extra_data = ExtraServerData::parse(player, conn_method, &result);
+    log::trace!("[{}] Parsed", dst.socket_addr);
+    let extra_data = ExtraServerData::parse(dst.clone(), player, conn_method, &result);
     let data = result.get_data().unwrap(); // data is missing only in NoHandshake, which we check before
     Some(gen_protobuf_server_data(dst, data, extra_data))
 }

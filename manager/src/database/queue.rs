@@ -15,16 +15,16 @@ impl DbQueueWorker {
             let mut tx = match self.db_pool.begin().await {
                 Ok(tx) => tx,
                 Err(e) => {
-                    log::error!("failed to start transaction: {e}");
+                    log::error!("Failed to start transaction: {e}");
                     return;
                 }
             };
 
             if let Err(e) = data.write_to_tx(&mut tx).await {
-                log::error!("failed to save server: {}", e);
+                log::error!("Failed to save server: {}", e);
             } else {
                 if let Err(e) = tx.commit().await {
-                    log::error!("failed to rollback db: {e}");
+                    log::error!("Failed to rollback db: {e}");
                 }
             }
         }

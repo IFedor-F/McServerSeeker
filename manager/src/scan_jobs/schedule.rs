@@ -48,7 +48,7 @@ impl ScheduleJob {
     }
     fn stop_if_running(&mut self) {
         if let Some(handle) = self.handle.take() {
-            log::info!("stopping schedule '{}'", self.info.name);
+            log::info!("Stopping schedule '{}'", self.info.name);
             handle.abort();
         }
         self.handle = None;
@@ -97,7 +97,7 @@ impl ScheduleService {
             return Err(ScheduleManagerError::DuplicateScheduleName(job_name));
         }
         self.manager.validate_executor(&schedule_data.executor)?;
-        log::info!("added new schedule '{job_name}'");
+        log::info!("Added new schedule '{job_name}'");
         self.schedules
             .lock()
             .await
@@ -124,13 +124,13 @@ impl ScheduleService {
                 let manager = self.manager.clone();
                 tokio::spawn(async move {
                     loop {
-                        log::info!("starting job '{name}'");
+                        log::info!("Starting job '{name}'");
                         match manager.run_job(manager_job_req.clone()).await {
                             Ok(job_id) => {
                                 manager.wait_for_job(job_id).await; //  waiting for the work to be completed
                             }
                             Err(e) => {
-                                log::error!("failed to start job '{name}': {e}");
+                                log::error!("Failed to start job '{name}': {e}");
                                 tokio::time::sleep(Duration::from_secs(5)).await; // Prevent spamming errors
                             }
                         }
@@ -147,12 +147,12 @@ impl ScheduleService {
                         let now = Utc::now();
                         if let Some(next_run) = cron_schedule.upcoming(Utc).next() {
                             let delay = (next_run - now).to_std().unwrap_or(Duration::ZERO);
-                            log::info!("job '{name}' will be started at {next_run}");
+                            log::info!("Job '{name}' will be started at {next_run}");
                             tokio::time::sleep(delay).await;
 
-                            log::info!("running job '{name}'");
+                            log::info!("Running job '{name}'");
                             if let Err(e) = manager.run_job(manager_job_req.clone()).await {
-                                log::error!("failed to spawn cron job '{name}': {e}");
+                                log::error!("Failed to spawn cron job '{name}': {e}");
                             }
                         } else {
                             break;
@@ -170,7 +170,7 @@ impl ScheduleService {
                 job_name.to_string(),
             )),
             Some(_) => {
-                log::info!("removed schedule {job_name}");
+                log::info!("Removed schedule {job_name}");
                 Ok(())
             }
         }

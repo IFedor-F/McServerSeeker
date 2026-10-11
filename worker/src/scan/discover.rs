@@ -51,7 +51,7 @@ pub fn scan_inet(
                 res = rx_results.recv(), if rx_results_open => {
                     match res {
                         Some(result) => {
-                            log::trace!("[job {}] found open port: {}:{}", job_id, result.ip, result.port);
+                            log::trace!("[job {}] Found open port: {}:{}", job_id, result.ip, result.port);
                             stats.founded += 1;
                             stats.parsing_now += 1;
 
@@ -139,16 +139,16 @@ pub async fn parse_server(
     };
 
     let result = dialog.connect(conn_settings).await;
-    log::trace!("[{}] result: {:?}", dst.socket_addr, result);
+    log::trace!("[{}] Result: {:?}", dst.socket_addr, result);
     match result {
         ConnectionResult::NoHandshake(e) => {
-            log::trace!("[{}] can't handshake: {e}", dst.socket_addr);
+            log::trace!("[{}] Can't handshake: {e}", dst.socket_addr);
             return None;
         }
         _ => {}
     }
-    log::trace!("[{}] parsed", dst.socket_addr);
-    let extra_data = ExtraServerData::parse(player, conn_method, &result);
+    log::trace!("[{}] Parsed", dst.socket_addr);
+    let extra_data = ExtraServerData::parse(dst.clone(), player, conn_method, &result);
     let data = result.get_data().unwrap(); // has data because we check this is not 'NoHandshake'
     Some(gen_protobuf_server_data(dst, data, extra_data))
 }

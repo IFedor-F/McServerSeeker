@@ -169,7 +169,7 @@ impl WorkerManagerService {
             }
         };
         log::info!(
-            "new one scan request: {}{}",
+            "New one scan request: {}{}",
             req.target,
             req.port.map(|v| format!(":{v}")).unwrap_or("".to_string())
         );
@@ -180,7 +180,7 @@ impl WorkerManagerService {
         match result {
             Ok(data) => Ok(data),
             Err(e) => {
-                log::error!("error while running scan one: {e}");
+                log::error!("Error while running scan one: {e}");
                 Err(WorkerManagerError::WorkerError)
             }
         }
@@ -202,7 +202,7 @@ impl WorkerManagerService {
                         targets,
                     }),
                     Err(e) => {
-                        log::error!("database error while trying to rescan db: {e}");
+                        log::error!("Database error while trying to rescan db: {e}");
                         return Err(WorkerManagerError::DatabaseError);
                     }
                 }
@@ -242,13 +242,13 @@ impl WorkerManagerService {
         let shared_jobs = self.tasks.clone();
 
         tokio::spawn(async move {
-            log::info!("spawn new job with id {}", job_id.0);
+            log::info!("Spawn new job with id {}", job_id.0);
             match future.await {
                 Ok(_) => {
-                    log::info!("finish job with id {job_id}")
+                    log::info!("Finish job with id {job_id}")
                 }
                 Err(e) => {
-                    log::error!("error while running job with id {job_id}: {e}")
+                    log::error!("Error while running job with id {job_id}: {e}")
                 }
             };
             shared_jobs.write().await.remove(&job_id);
@@ -258,7 +258,7 @@ impl WorkerManagerService {
     }
     pub async fn cancel_job(&self, job_id: JobId) {
         if let Some(task) = self.tasks.read().await.get(&job_id) {
-            log::info!("cancel job with id {job_id}");
+            log::info!("Cancel job with id {job_id}");
             task.cancellation_token.cancel()
         }
     }

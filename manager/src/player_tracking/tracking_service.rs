@@ -76,7 +76,7 @@ impl PlayerTrackingService {
                 if v.rows_affected() == 0 {
                     Err(PtsError::WebhookDuplicateUrl(info.url))
                 } else {
-                    log::debug!("added new webhook '{}'", info.url);
+                    log::debug!("Added new webhook '{}'", info.url);
                     Ok(())
                 }
             }
@@ -118,7 +118,7 @@ impl PlayerTrackingService {
                 .collect(),
 
             Err(e) => {
-                log::error!("database error while trying to get all webhooks info: {e}");
+                log::error!("Database error while trying to get all webhooks info: {e}");
                 Err(PtsError::SqlError)
             }
         }
@@ -132,10 +132,10 @@ impl PlayerTrackingService {
         .execute(&self.db_pool)
         .await;
         if let Err(e) = result {
-            log::error!("database error while trying to delete webhook: {e}");
+            log::error!("Database error while trying to delete webhook: {e}");
             Err(PtsError::SqlError)
         } else {
-            log::debug!("delete webhook '{url}'");
+            log::debug!("Delete webhook '{url}'");
             Ok(())
         }
     }
@@ -167,10 +167,10 @@ impl PlayerTrackingService {
         match result {
             Ok(data) => {
                 data.ok_or(PtsError::WebhookNotFound(url.clone()))?;
-                log::debug!("added new track in webhook '{url}'");
+                log::debug!("Added new track in webhook '{url}'");
             }
             Err(e) => {
-                log::error!("database error while trying to add player track: {e}");
+                log::error!("Database error while trying to add player track: {e}");
                 return Err(PtsError::SqlError);
             }
         }
@@ -218,7 +218,7 @@ impl PlayerTrackingService {
             }
             Ok(None) => Err(PtsError::WebhookNotFound(url.clone())),
             Err(e) => {
-                log::error!("database error while trying to get track info: {e}");
+                log::error!("Database error while trying to get track info: {e}");
                 Err(PtsError::SqlError)
             }
         }
@@ -243,7 +243,7 @@ impl PlayerTrackingService {
         let tracks = match result {
             Ok(tracks) => tracks,
             Err(e) => {
-                log::error!("database error while trying to get all webhook tracks info: {e}");
+                log::error!("Database error while trying to get all webhook tracks info: {e}");
                 return Err(PtsError::SqlError);
             }
         };
@@ -299,14 +299,14 @@ impl PlayerTrackingService {
         match result {
             Ok(result) => {
                 if result.webhook_exists {
-                    log::debug!("remove track from webhook '{url}'");
+                    log::debug!("Remove track from webhook '{url}'");
                     Ok(())
                 } else {
                     Err(PtsError::WebhookNotFound(url.clone()))
                 }
             }
             Err(e) => {
-                log::error!("database error while trying to remove track: {e}");
+                log::error!("Database error while trying to remove track: {e}");
                 Err(PtsError::SqlError)
             }
         }
@@ -314,7 +314,7 @@ impl PlayerTrackingService {
     pub async fn run_tracking(&self) {
         loop {
             tokio::time::sleep(self.interval).await;
-            log::debug!("starting search for tracking players in database");
+            log::debug!("Starting search for tracking players in database");
             let records = sqlx::query!(
                 r#"
                 WITH ranked_records AS (
@@ -350,7 +350,7 @@ impl PlayerTrackingService {
             let records = match records {
                 Ok(v) => v,
                 Err(e) => {
-                    log::error!("error occurred while checking database: {e}");
+                    log::error!("Error occurred while checking database: {e}");
                     continue;
                 }
             };
@@ -376,7 +376,7 @@ impl PlayerTrackingService {
                 let url = match Url::parse(&webhook_url) {
                     Ok(v) => v,
                     Err(e) => {
-                        log::error!("can't parse webhook url from database: {e}");
+                        log::error!("Can't parse webhook url from database: {e}");
                         continue;
                     }
                 };
@@ -392,7 +392,7 @@ fn try_parse_url(url: &str) -> Result<Url, PtsError> {
     match url.parse() {
         Ok(v) => Ok(v),
         Err(e) => {
-            log::error!("invalid data in database - broken url '{}': {e}", url);
+            log::error!("Invalid data in database - broken url '{}': {e}", url);
             Err(PtsError::SqlError)
         }
     }

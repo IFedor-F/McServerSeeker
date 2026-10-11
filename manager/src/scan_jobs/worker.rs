@@ -176,7 +176,7 @@ impl Worker {
                                         tx_db_queue.send(parsed).await?
                                     }
                                     Err(e) => {
-                                        log::error!("error occurred while parsing data from worker: {e}")
+                                        log::error!("Error occurred while parsing data from worker: {e}")
                                     }
                                 }
                             }
@@ -193,7 +193,7 @@ impl Worker {
                     if let Some(id)  = work_id {
                         let result = client.cancel(tonic::Request::new(pb::JobCancel {job_id: id})).await;
                         if let Err(e) = result {
-                            log::error!("failed to send cancel job request to worker: {e}")
+                            log::error!("Failed to send cancel job request to worker: {e}")
                         }
                     }
                     break;
@@ -234,7 +234,7 @@ impl Worker {
                                         tx_db_queue.send(parsed).await?
                                     }
                                     Err(e) => {
-                                        log::error!("error occurred while parsing data from worker: {e}")
+                                        log::error!("Error occurred while parsing data from worker: {e}")
                                     }
                                 }
                             }
@@ -257,7 +257,7 @@ impl Worker {
                     if let Some(id) = work_id {
                         let result = client.cancel(tonic::Request::new(pb::JobCancel {job_id: id})).await;
                         if let Err(e) = result {
-                            log::error!("failed to send cancel job request to worker: {e}")
+                            log::error!("Failed to send cancel job request to worker: {e}")
                         }
                     }
                     break;

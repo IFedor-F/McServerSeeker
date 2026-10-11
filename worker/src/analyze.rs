@@ -1,7 +1,7 @@
 use data_core::proto::scanner as pb;
 use mc_protocol::dialog::{
     ConnectionMethod, ConnectionResult, DisconnectConfigurationReason, DisconnectLoginReason,
-    DisconnectPlayReason, ServerData,
+    DisconnectPlayReason, ServerData, ServerDst,
 };
 use mc_protocol::types::Player;
 use mc_protocol::types::player::OnlineType;
@@ -16,6 +16,7 @@ pub struct ExtraServerData {
 
 impl ExtraServerData {
     pub fn parse(
+        dst: ServerDst,
         player: Player,
         connection_method: ConnectionMethod,
         connection_result: &ConnectionResult,
@@ -24,6 +25,7 @@ impl ExtraServerData {
         let mut is_whitelist: Option<bool> = None;
         let mut is_online_mode: Option<bool> = None;
         let mut offline_auth: Option<bool> = None;
+        let formatted_dst = dst.socket_addr.to_string();
 
         match connection_result {
             ConnectionResult::NoHandshake(_) => {
@@ -43,11 +45,11 @@ impl ExtraServerData {
                         };
                     }
                     DisconnectLoginReason::DialogError(e) => {
-                        log::debug!("dialog error: {:?}", e);
+                        log::debug!("Dialog error with server {formatted_dst}: {e:?}");
                         is_online_mode = check_online_mode_by_player_list(data);
                     }
                     DisconnectLoginReason::Timeout => {
-                        log::debug!("disconnect because timeout for state login");
+                        log::debug!("Disconnect because timeout for state login");
                         is_online_mode = check_online_mode_by_player_list(data);
                     }
                 }
@@ -63,25 +65,24 @@ impl ExtraServerData {
             ConnectionResult::DisconnectAtConfiguration { data: _, reason } => {
                 match reason {
                     DisconnectConfigurationReason::DisconnectByServer { msg } => {
-                        log::debug!("unexpected server disconnect in configuration: {}", msg)
+                        log::debug!("Unexpected server disconnect in configuration: {msg}")
                     }
                     DisconnectConfigurationReason::ShowDialog => {
-                        log::debug!("disconnect because dialog was sent")
+                        log::debug!("Disconnect because dialog was sent")
                     }
                     DisconnectConfigurationReason::TooMuchTransfers { count } => {
                         log::debug!(
-                            "disconnect from server due too much transfers attempts: {}",
-                            count
+                            "Disconnect from server due too much transfers attempts: {count}",
                         )
                     }
                     DisconnectConfigurationReason::CantResolveHost(host) => {
-                        log::warn!("can't resolve server host in transfer packet: {}", host)
+                        log::warn!("Can't resolve server host in transfer packet: {host}")
                     }
                     DisconnectConfigurationReason::DialogError(e) => {
-                        log::debug!("dialog error: {:?}", e)
+                        log::info!("Dialog error with server {formatted_dst}: {e:?}")
                     }
                     DisconnectConfigurationReason::Timeout => {
-                        log::debug!("disconnect because timeout at configuration state")
+                        log::debug!("Disconnect because timeout at configuration state")
                     }
                 }
                 is_online_mode = Some(false);
@@ -98,7 +99,7 @@ impl ExtraServerData {
                 match reason {
                     DisconnectPlayReason::DisconnectByServer { .. } => {}
                     DisconnectPlayReason::DialogError(e) => {
-                        log::info!("dialog error: {:?}", e)
+                        log::info!("Dialog error with server {formatted_dst}: {e:?}")
                     }
                 }
                 is_online_mode = Some(false);
