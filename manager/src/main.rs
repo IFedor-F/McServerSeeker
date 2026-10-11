@@ -139,13 +139,17 @@ fn configure_manager(db_pool: &PgPool, config: &Config) -> Arc<WorkerManagerServ
     for worker_info in config.workers.iter() {
         let mut endpoint =
             Endpoint::from_shared(worker_info.url.to_string()).expect("invalid worker endpoint");
-        if let Some(tls_config) = tls_config.clone() {
+        if let Some(tls_config) = &tls_config
+            && worker_info.url.scheme() != "http"
+        {
             endpoint = endpoint
-                .tls_config(tls_config)
+                .tls_config(tls_config.clone())
                 .expect("invalid tls configuration")
-                .timeout(Duration::from_secs(5))
-                .connect_timeout(Duration::from_secs(5))
         }
+
+        endpoint = endpoint
+            .timeout(Duration::from_secs(5))
+            .connect_timeout(Duration::from_secs(5));
         let worker = Worker::new(worker_info.clone(), endpoint);
         manager_service.add_worker(worker)
     }
